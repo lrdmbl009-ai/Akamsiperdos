@@ -799,7 +799,10 @@ window.submitOrderMakanan = async function() {
   const catatan = document.getElementById('foodCatatan').value.trim();
   if (!menu || !alamat) { toast('⚠️ Menu dan alamat wajib diisi!'); return; }
   const id = await submitOrder({ tipe:'makanan', resto:selectedResto, menu, alamat, catatan, status:'menunggu_konfirmasi' }, 'btnOrderFood', '🛒 Pesan Sekarang');
-  if (id) { toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...'); document.getElementById('foodMenu').value=''; document.getElementById('foodAlamat').value=''; }
+  if (id) { toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...');
+  toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...');
+bunyiSukses(); // ← tambah ini
+  document.getElementById('foodMenu').value=''; document.getElementById('foodAlamat').value=''; }
 };
 
 window.submitOrderPenumpang = async function() {
@@ -851,6 +854,8 @@ function updateOrderStatus(data, id) {
   document.getElementById('osDriver').textContent = data.driverNama || 'Mencari...';
   const labels = { menunggu_konfirmasi:'⏳ Menunggu Konfirmasi...', dikonfirmasi:'✅ Dikonfirmasi! Sedang diproses...', menunggu_driver:'🔍 Mencari Driver...', driver_ditemukan:'🏍️ Driver Ditemukan!', dijemput:'📍 Driver Menuju Kamu...', selesai:'🎉 Pesanan Selesai!' };
   document.getElementById('osStatus').textContent = labels[data.status] || data.status;
+  document.getElementById('osStatus').textContent = labels[data.status] || data.status;
+bunyiOrder(); // ← tambah ini
   if (data.status === 'selesai') {
     localStorage.removeItem('myOrderId_' + currentUser?.uid);
     setTimeout(() => document.getElementById('orderStatusCard').classList.remove('show'), 6000);
@@ -950,7 +955,10 @@ function openChatPanel(roomId, name, sub) {
   if (chatListenerRef) off(chatListenerRef);
   set(ref(db, `chats/${roomId}/label`), name);
   chatListenerRef = ref(db, `chats/${roomId}/messages`);
-  onValue(chatListenerRef, snap => renderChatMessages(snap.val()||{}));
+  onValue(chatListenerRef, snap => {
+  renderChatMessages(snap.val()||{});
+  bunyiChat();
+});
 }
 
 function renderChatMessages(msgs) {
@@ -1188,7 +1196,49 @@ document.querySelectorAll('.schip').forEach(c=>{
 document.querySelectorAll('.bni').forEach(n=>{
   n.addEventListener('click',()=>{document.querySelectorAll('.bni').forEach(x=>x.classList.remove('on'));n.classList.add('on');});
 });
-
+// ── SUARA NOTIF ──
+function bunyiOrder() {
+  try {
+    const ctx = new AudioContext();
+    [0,150,300].forEach(delay => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay/1000);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay/1000 + 0.3);
+      osc.start(ctx.currentTime + delay/1000);
+      osc.stop(ctx.currentTime + delay/1000 + 0.3);
+    });
+  } catch(e) {}
+}
+function bunyiChat() {
+  try {
+    const ctx  = new AudioContext();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 660;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.start(); osc.stop(ctx.currentTime + 0.2);
+  } catch(e) {}
+}
+function bunyiSukses() {
+  try {
+    const ctx = new AudioContext();
+    [520,660,880].forEach((freq,i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i*0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.12 + 0.2);
+      osc.start(ctx.currentTime + i*0.12);
+      osc.stop(ctx.currentTime + i*0.12 + 0.2);
+    });
+  } catch(e) {}
+}
 // ── TOAST ──
 let _tt;
 window.toast = function(msg) {
