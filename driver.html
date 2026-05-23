@@ -101,7 +101,34 @@ main{padding:14px 14px 100px;}
 .ao-btn.nav{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.12);}
 .ao-btn.chat{background:rgba(78,205,196,.15);color:var(--passenger);border:1px solid rgba(78,205,196,.3);}
 
-#driverMap{height:180px;border-radius:12px;margin-bottom:10px;overflow:hidden;}
+#driverMap{height:220px;border-radius:16px;margin-bottom:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+
+/* ── TRACKING PROFESSIONAL ── */
+.driver-marker-wrap{position:relative;width:52px;height:52px;}
+.driver-marker-shadow{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:30px;height:8px;background:rgba(0,0,0,.25);border-radius:50%;filter:blur(3px);}
+.driver-marker-body{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#00C9B1,#4ECDC4);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(78,205,196,.6);border:3px solid #fff;transition:transform .15s ease;}
+.driver-marker-icon{font-size:1.5rem;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));}
+.driver-marker-pulse{position:absolute;inset:-6px;border-radius:50%;border:3px solid rgba(78,205,196,.5);animation:markerPulse 2s ease-out infinite;}
+@keyframes markerPulse{0%{transform:scale(1);opacity:1}100%{transform:scale(1.6);opacity:0}}
+
+.dest-marker-wrap{position:relative;}
+.dest-marker-pin{width:36px;height:36px;border-radius:50% 50% 50% 0;background:linear-gradient(135deg,#FF6B35,#FF4D4D);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(255,77,77,.5);border:2px solid #fff;}
+.dest-marker-icon{transform:rotate(45deg);font-size:1rem;}
+.dest-marker-shadow{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:16px;height:6px;background:rgba(0,0,0,.2);border-radius:50%;filter:blur(2px);}
+
+.pickup-marker-pin{width:36px;height:36px;border-radius:50% 50% 50% 0;background:linear-gradient(135deg,#00C897,#00A896);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,200,151,.5);border:2px solid #fff;}
+
+.route-line{stroke:#4ECDC4;stroke-width:4;stroke-dasharray:10,6;stroke-linecap:round;animation:routeDash 1.2s linear infinite;}
+@keyframes routeDash{to{stroke-dashoffset:-32}}
+
+/* ETA bar di atas map */
+.map-eta-bar{position:absolute;top:10px;left:10px;right:10px;z-index:20;background:rgba(22,33,62,.92);backdrop-filter:blur(8px);border-radius:14px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border:1px solid rgba(255,255,255,.1);}
+.eta-left{display:flex;align-items:center;gap:8px;}
+.eta-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:etaPulse 1.5s ease infinite;}
+@keyframes etaPulse{0%,100%{opacity:1}50%{opacity:.4}}
+.eta-text{font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;color:#fff;}
+.eta-sub{font-size:.65rem;color:var(--muted);}
+.eta-dist{font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:800;color:var(--passenger);}
 
 .empty-state{text-align:center;padding:28px 16px;}
 .empty-icon{font-size:2.8rem;margin-bottom:10px;}
@@ -280,7 +307,19 @@ main{padding:14px 14px 100px;}
   <!-- ACTIVE ORDER -->
   <div class="active-order" id="activeOrderDiv">
     <div class="ao-title">🟢 Order Aktif</div>
-    <div id="driverMap"></div>
+    <div style="position:relative">
+      <div id="driverMap"></div>
+      <div class="map-eta-bar" id="mapEtaBar" style="display:none">
+        <div class="eta-left">
+          <div class="eta-dot"></div>
+          <div>
+            <div class="eta-text" id="etaText">Menuju...</div>
+            <div class="eta-sub" id="etaSub">Estimasi waktu</div>
+          </div>
+        </div>
+        <div class="eta-dist" id="etaDist">– km</div>
+      </div>
+    </div>
     <div class="ao-row"><span class="ao-lbl">Order ID</span><span class="ao-val" id="aoId">–</span></div>
     <div class="ao-row"><span class="ao-lbl">Pelanggan</span><span class="ao-val" id="aoPelanggan">–</span></div>
     <div class="ao-row"><span class="ao-lbl">Layanan</span><span class="ao-val" id="aoLayanan">–</span></div>
@@ -362,7 +401,14 @@ let isOnline = false;
 let activeOrderId = null;
 let locationWatcher = null;
 let driverMap = null;
-let pelangganMarker = null;
+let driverSelfMarker = null;   // marker posisi driver sendiri di map
+let pelangganMarker = null;    // marker tujuan/pickup pelanggan
+let pickupMarker = null;       // marker pickup
+let routeLine = null;          // garis rute
+let prevDriverPos = null;      // posisi sebelumnya untuk rotasi
+let currentDriverPos = null;   // posisi driver saat ini
+let animFrame = null;          // animation frame untuk smooth movement
+let interpStart = null;        // interpolasi posisi
 let pendingOrderId = null;
 let currentChatRoom = null;
 let chatListenerRef = null;
@@ -560,11 +606,27 @@ function startLocationTracking() {
   if (!navigator.geolocation) return;
   locationWatcher = navigator.geolocation.watchPosition(
     pos => {
-      const { latitude: lat, longitude: lng } = pos.coords;
-      update(ref(db, `drivers/${driverData.uid}/location`), { lat, lng, updated: serverTimestamp() });
+      const { latitude: lat, longitude: lng, heading } = pos.coords;
+      // Simpan ke Firebase
+      update(ref(db, 'drivers/' + driverData.uid + '/location'), {
+        lat, lng,
+        heading: heading || 0,
+        updated: serverTimestamp()
+      });
+      // Update marker driver sendiri di map
+      const newPos = [lat, lng];
+      if (driverSelfMarker && driverMap) {
+        smoothMoveMarker(driverSelfMarker, newPos, heading);
+        // Update ETA jika ada order aktif
+        if (activeOrderId && currentDriverPos) {
+          updateETA(lat, lng);
+        }
+      }
+      prevDriverPos = currentDriverPos;
+      currentDriverPos = newPos;
     },
-    null,
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    err => console.warn('GPS error:', err),
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
   );
 }
 
@@ -643,8 +705,6 @@ function showNotifPopup(id, order) {
   document.getElementById('notifBody').textContent = txt;
   document.getElementById('notifPopup').classList.add('show');
   if (navigator.vibrate) navigator.vibrate([200,100,200]);
-  if (navigator.vibrate) navigator.vibrate([200,100,200]);
-bunyiOrder(); // ← tambah ini
   setTimeout(() => document.getElementById('notifPopup').classList.remove('show'), 15000);
 }
 
@@ -677,8 +737,6 @@ window.ambilOrderById = async function(id) {
   showActiveOrder(id);
   listenActiveOrder(id);
   toast('✅ Order berhasil diambil!');
-  toast('✅ Order berhasil diambil!');
-bunyiSukses(); // ← tambah ini
   document.getElementById('notifPopup').classList.remove('show');
 };
 
@@ -687,23 +745,230 @@ function showActiveOrder(id) {
   document.getElementById('aoId').textContent = '#' + id.slice(-6).toUpperCase();
   if (!driverMap) {
     setTimeout(() => {
-      driverMap = L.map('driverMap', { zoomControl:false, attributionControl:false }).setView([-0.8365,119.8927], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(driverMap);
-    }, 100);
+      // Init map dengan style gelap profesional
+      driverMap = L.map('driverMap', {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: true,
+        tap: true
+      }).setView([-0.8365, 119.8927], 15);
+
+      // Tile map style lebih gelap & bersih
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        opacity: 0.85
+      }).addTo(driverMap);
+
+      // Buat marker driver profesional
+      driverSelfMarker = L.marker([-0.8365, 119.8927], {
+        icon: createDriverIcon(0),
+        zIndexOffset: 1000
+      }).addTo(driverMap);
+
+      // Ambil posisi GPS saat ini langsung
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          currentDriverPos = [lat, lng];
+          driverSelfMarker.setLatLng([lat, lng]);
+          driverMap.setView([lat, lng], 16);
+          document.getElementById('mapEtaBar').style.display = 'flex';
+        }, null, { enableHighAccuracy: true, timeout: 8000 });
+      }
+    }, 150);
+  } else {
+    driverMap.invalidateSize();
   }
 }
 
-function updateActiveOrder(data, id) {
-  document.getElementById('aoPelanggan').textContent = data.pelanggan || '–';
-  document.getElementById('aoLayanan').textContent = data.tipe || '–';
-  document.getElementById('aoDari').textContent = data.dari || data.alamat || data.resto || '–';
-  document.getElementById('aoKe').textContent = data.ke || data.alamat || '–';
-  document.getElementById('aoTarif').textContent = data.tarif || 'COD';
-  if (data.keLat && driverMap) {
-    if (pelangganMarker) driverMap.removeLayer(pelangganMarker);
-    pelangganMarker = L.marker([data.keLat,data.keLng], { icon: L.divIcon({ html:'📍', className:'', iconSize:[24,24] }) }).addTo(driverMap);
-    driverMap.setView([data.keLat,data.keLng], 15);
+// ── BUAT IKON DRIVER PROFESIONAL ──
+function createDriverIcon(rotationDeg) {
+  const html = `
+    <div class="driver-marker-wrap">
+      <div class="driver-marker-pulse"></div>
+      <div class="driver-marker-body" style="transform:rotate(${rotationDeg}deg)">
+        <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Motor modern dari atas -->
+          <ellipse cx="32" cy="38" rx="18" ry="10" fill="#1a1a2e" opacity="0.6"/>
+          <!-- Badan motor -->
+          <rect x="20" y="26" width="24" height="14" rx="6" fill="#fff"/>
+          <!-- Roda depan -->
+          <ellipse cx="44" cy="36" rx="5" ry="8" fill="#333" stroke="#fff" stroke-width="1.5"/>
+          <!-- Roda belakang -->
+          <ellipse cx="20" cy="36" rx="5" ry="8" fill="#333" stroke="#fff" stroke-width="1.5"/>
+          <!-- Setang -->
+          <rect x="42" y="23" width="10" height="3" rx="1.5" fill="#aaa"/>
+          <!-- Helm driver (bulat di atas) -->
+          <circle cx="30" cy="22" r="8" fill="#4ECDC4"/>
+          <circle cx="30" cy="22" r="5" fill="#fff" opacity="0.3"/>
+          <!-- Lampu depan -->
+          <ellipse cx="46" cy="30" rx="3" ry="2" fill="#FFC300" opacity="0.9"/>
+        </svg>
+      </div>
+      <div class="driver-marker-shadow"></div>
+    </div>`;
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [52, 52],
+    iconAnchor: [26, 26]
+  });
+}
+
+// ── BUAT IKON TUJUAN ──
+function createDestIcon(type) {
+  const color = type === 'pickup' ? '#00C897' : '#FF4D4D';
+  const glow  = type === 'pickup' ? 'rgba(0,200,151,.5)' : 'rgba(255,77,77,.5)';
+  const emoji = type === 'pickup' ? '👤' : '🏁';
+  const html  = `
+    <div class="dest-marker-wrap">
+      <div style="width:38px;height:38px;border-radius:50% 50% 50% 0;background:linear-gradient(135deg,${color},${color}cc);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px ${glow};border:2px solid #fff;">
+        <span style="transform:rotate(45deg);font-size:1rem">${emoji}</span>
+      </div>
+      <div style="position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:14px;height:5px;background:rgba(0,0,0,.2);border-radius:50%;filter:blur(2px)"></div>
+    </div>`;
+  return L.divIcon({ html, className: '', iconSize: [38, 44], iconAnchor: [19, 44] });
+}
+
+// ── SMOOTH MOVE MARKER dengan interpolasi ──
+function smoothMoveMarker(marker, newLatLng, heading) {
+  if (!marker || !driverMap) return;
+  const startLatLng = marker.getLatLng();
+  const startTime   = performance.now();
+  const duration    = 800; // ms
+
+  // Hitung rotasi dari posisi lama ke baru
+  let rotation = heading || 0;
+  if (!heading && prevDriverPos) {
+    rotation = calcBearing(
+      prevDriverPos[0], prevDriverPos[1],
+      newLatLng[0], newLatLng[1]
+    );
   }
+
+  if (animFrame) cancelAnimationFrame(animFrame);
+
+  function animate(now) {
+    const elapsed  = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // Easing cubic
+    const ease = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    const lat = startLatLng.lat + (newLatLng[0] - startLatLng.lat) * ease;
+    const lng = startLatLng.lng + (newLatLng[1] - startLatLng.lng) * ease;
+    marker.setLatLng([lat, lng]);
+
+    // Update rotasi ikon
+    const iconEl = marker.getElement();
+    if (iconEl) {
+      const body = iconEl.querySelector('.driver-marker-body');
+      if (body) body.style.transform = `rotate(${rotation}deg)`;
+    }
+
+    if (progress < 1) animFrame = requestAnimationFrame(animate);
+    else {
+      marker.setLatLng(newLatLng);
+      driverMap.panTo(newLatLng, { animate: true, duration: 0.5 });
+    }
+  }
+  animFrame = requestAnimationFrame(animate);
+}
+
+// ── HITUNG BEARING (arah) antara 2 titik ──
+function calcBearing(lat1, lng1, lat2, lng2) {
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const y    = Math.sin(dLng) * Math.cos(lat2 * Math.PI / 180);
+  const x    = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180)
+             - Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLng);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// ── UPDATE ETA ──
+function updateETA(driverLat, driverLng) {
+  if (!activeOrderData) return;
+  const targetLat = activeOrderData.dariLat || activeOrderData.keLat;
+  const targetLng = activeOrderData.dariLng || activeOrderData.keLng;
+  if (!targetLat || !targetLng) return;
+  const dist = haversineDriver(driverLat, driverLng, targetLat, targetLng);
+  const mins  = Math.max(1, Math.round(dist * 3));
+  document.getElementById('etaDist').textContent  = dist.toFixed(1) + ' km';
+  document.getElementById('etaText').textContent  = mins + ' menit lagi';
+  document.getElementById('etaSub').textContent   = activeOrderData.status === 'driver_ditemukan'
+    ? 'Menuju titik jemput' : 'Menuju tujuan';
+  document.getElementById('mapEtaBar').style.display = 'flex';
+}
+
+function haversineDriver(a, b, c, d) {
+  const R = 6371, dLat = (c-a)*Math.PI/180, dLng = (d-b)*Math.PI/180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function updateActiveOrder(data, id) {
+  activeOrderData = data;
+  document.getElementById('aoPelanggan').textContent = data.pelanggan || '–';
+  document.getElementById('aoLayanan').textContent   = data.tipe || '–';
+  document.getElementById('aoDari').textContent      = data.dari || data.alamat || data.resto || '–';
+  document.getElementById('aoKe').textContent        = data.ke || data.alamat || '–';
+  document.getElementById('aoTarif').textContent     = data.tarif || 'COD';
+
+  if (!driverMap) return;
+
+  // Hapus marker lama
+  if (pelangganMarker) { driverMap.removeLayer(pelangganMarker); pelangganMarker = null; }
+  if (pickupMarker)    { driverMap.removeLayer(pickupMarker);    pickupMarker    = null; }
+  if (routeLine)       { driverMap.removeLayer(routeLine);       routeLine       = null; }
+
+  // Tampilkan marker sesuai status order
+  if (data.status === 'driver_ditemukan' && data.dariLat) {
+    // Menuju titik JEMPUT
+    pickupMarker = L.marker([data.dariLat, data.dariLng], {
+      icon: createDestIcon('pickup')
+    }).addTo(driverMap).bindPopup('📍 Titik Jemput: ' + (data.dari||'–'));
+
+    // Gambar rute dashed ke pickup
+    if (currentDriverPos) {
+      drawRoute(currentDriverPos, [data.dariLat, data.dariLng]);
+    }
+    driverMap.fitBounds([
+      currentDriverPos || [-0.8365, 119.8927],
+      [data.dariLat, data.dariLng]
+    ], { padding: [40, 40] });
+
+  } else if (data.keLat) {
+    // Menuju TUJUAN
+    pelangganMarker = L.marker([data.keLat, data.keLng], {
+      icon: createDestIcon('dest')
+    }).addTo(driverMap).bindPopup('🏁 Tujuan: ' + (data.ke||'–'));
+
+    // Gambar rute dashed ke tujuan
+    if (currentDriverPos) {
+      drawRoute(currentDriverPos, [data.keLat, data.keLng]);
+    }
+    driverMap.fitBounds([
+      currentDriverPos || [-0.8365, 119.8927],
+      [data.keLat, data.keLng]
+    ], { padding: [40, 40] });
+  }
+
+  // Update ETA
+  if (currentDriverPos) {
+    updateETA(currentDriverPos[0], currentDriverPos[1]);
+  }
+}
+
+// ── GAMBAR RUTE DASHED ──
+function drawRoute(from, to) {
+  if (routeLine) { driverMap.removeLayer(routeLine); }
+  routeLine = L.polyline([from, to], {
+    color: '#4ECDC4',
+    weight: 4,
+    opacity: 0.8,
+    dashArray: '10, 8',
+    lineJoin: 'round'
+  }).addTo(driverMap);
 }
 
 window.updateStatusOrder = async function(status) {
@@ -771,10 +1036,7 @@ function openChatPanel(roomId, name, sub) {
   if (chatListenerRef) off(chatListenerRef);
   set(ref(db, `chats/${roomId}/label`), name);
   chatListenerRef = ref(db, `chats/${roomId}/messages`);
-  onValue(chatListenerRef, snap => {
-  renderChatMessages(snap.val()||{});
-  bunyiChat();
-});
+  onValue(chatListenerRef, snap => renderChatMessages(snap.val()||{}));
 }
 
 function renderChatMessages(msgs) {
@@ -819,49 +1081,7 @@ window.closeChat = function() {
   if (chatListenerRef) { off(chatListenerRef); chatListenerRef = null; }
   currentChatRoom = null;
 };
-// ── SUARA NOTIF ──
-function bunyiOrder() {
-  try {
-    const ctx = new AudioContext();
-    [0,150,300].forEach(delay => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay/1000);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay/1000 + 0.3);
-      osc.start(ctx.currentTime + delay/1000);
-      osc.stop(ctx.currentTime + delay/1000 + 0.3);
-    });
-  } catch(e) {}
-}
-function bunyiChat() {
-  try {
-    const ctx  = new AudioContext();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = 660;
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    osc.start(); osc.stop(ctx.currentTime + 0.2);
-  } catch(e) {}
-}
-function bunyiSukses() {
-  try {
-    const ctx = new AudioContext();
-    [520,660,880].forEach((freq,i) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.3, ctx.currentTime + i*0.12);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.12 + 0.2);
-      osc.start(ctx.currentTime + i*0.12);
-      osc.stop(ctx.currentTime + i*0.12 + 0.2);
-    });
-  } catch(e) {}
-}
+
 let _tt;
 window.toast = function(msg) {
   clearTimeout(_tt);
