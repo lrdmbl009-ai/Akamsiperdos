@@ -636,28 +636,85 @@ function stopLocationTracking() {
 
 // ── LISTEN ORDERS ──
 function listenOrders() {
+  // Hapus listener lama dulu sebelum buat baru
+  if (listeners.orders) {
+    listeners.orders();
+    delete listeners.orders;
+  }
   const ordersRef = ref(db, 'orders');
   onValue(ordersRef, snap => {
     if (activeOrderId) return;
     const orders = snap.val() || {};
-    renderOrders(orders);
+    // Filter hanya order yang dibuat dalam 2 jam terakhir
+    const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+    const filtered = Object.fromEntries(
+      Object.entries(orders).filter(([,o]) =>
+        (o.waktu || 0) > twoHoursAgo ||
+        typeof o.waktu !== 'number'
+      )
+    );
+    renderOrders(filtered);
   });
   listeners.orders = () => off(ordersRef);
 }
 
 function listenActiveOrder(orderId) {
-  const orderRef = ref(db, `orders/${orderId}`);
+  // Hapus listener lama
+  if (listeners.activeOrder) {
+    listeners.activeOrder();
+    delete listeners.activeOrder;
+  }
+  const orderRef = ref(db, 'orders/' + orderId);
   onValue(orderRef, snap => {
     const data = snap.val();
-    if (data) updateActiveOrder(data, orderId);
+    if (!data) {
+      // Order dihapus dari database
+      toast('⚠️ Order tidak ditemukan');
+      resetActiveOrder();
+      return;
+    }
+    // Cek jika order dibatalkan
+    if (['dibatalkan_pelanggan','dibatalkan_admin','ditolak_resto'].includes(data.status)) {
+      toast('❌ Order dibatalkan oleh ' +
+        (data.status === 'dibatalkan_pelanggan' ? 'pelanggan' :
+         data.status === 'dibatalkan_admin' ? 'admin' : 'resto'));
+      resetActiveOrder();
+      return;
+    }
+    // Cek jika order selesai
+    if (data.status === 'selesai') {
+      toast('🎉 Order selesai!');
+      resetActiveOrder();
+      return;
+    }
+    updateActiveOrder(data, orderId);
   });
   listeners.activeOrder = () => off(orderRef);
+}
+
+// Fungsi reset order aktif
+function resetActiveOrder() {
+  activeOrderId = null;
+  activeOrderData = null;
+  localStorage.removeItem('activeOrderId_' + (driverData?.uid || ''));
+  document.getElementById('activeOrderDiv').classList.remove('show');
+  document.getElementById('mapEtaBar').style.display = 'none';
+  document.getElementById('btnPickup').style.display = '';
+  pendingOrderId = null;
+  if (listeners.activeOrder) {
+    listeners.activeOrder();
+    delete listeners.activeOrder;
+  }
+  // Mulai listen order baru lagi
+  if (isOnline) listenOrders();
 }
 
 // ── RENDER ORDERS ──
 function renderOrders(orders) {
   const available = Object.entries(orders).filter(([,o]) =>
-    !o.driverId && ['menunggu_driver','menunggu_konfirmasi','dikonfirmasi'].includes(o.status)
+    !o.driverId &&
+    ['menunggu_driver','menunggu_konfirmasi','dikonfirmasi'].includes(o.status) &&
+    !['dibatalkan_pelanggan','dibatalkan_admin','ditolak_resto','selesai'].includes(o.status)
   );
   const list = document.getElementById('orderList');
   if (!available.length) {
@@ -697,17 +754,36 @@ function renderOrders(orders) {
 }
 
 // ── AMBIL ORDER ──
+// Simpan daftar order yang sudah pernah dinotif
+const shownNotifIds = new Set(
+  JSON.parse(localStorage.getItem('shownNotifIds') || '[]')
+);
+
 function showNotifPopup(id, order) {
+  // Jangan tampilkan popup order yang sudah pernah ditampilkan
+  if (shownNotifIds.has(id)) return;
+
+  // Jangan tampilkan order lebih dari 10 menit lalu
+  const tenMinsAgo = Date.now() - (10 * 60 * 1000);
+  if ((order.waktu || 0) < tenMinsAgo) return;
+
+  // Tandai sudah ditampilkan
+  shownNotifIds.add(id);
+  localStorage.setItem('shownNotifIds', JSON.stringify([...shownNotifIds]));
+
+  pendingOrderId = id;
   let txt = `🆔 #${id.slice(-6).toUpperCase()}\n👤 ${order.pelanggan||'–'}\n`;
-  if (order.tipe==='makanan') txt += `🍔 ${order.menu||'–'}\n📍 ${order.alamat||'–'}`;
+  if (order.tipe==='makanan')   txt += `🍔 ${order.menu||'–'}\n📍 ${order.alamat||'–'}`;
   if (order.tipe==='penumpang') txt += `📍 ${order.dari||'–'}\n🏁 ${order.ke||'–'}\n💰 ${order.tarif||'–'}`;
-  if (order.tipe==='barang') txt += `📦 ${order.dari||'–'} → ${order.ke||'–'}`;
+  if (order.tipe==='barang')    txt += `📦 ${order.dari||'–'} → ${order.ke||'–'}`;
   document.getElementById('notifBody').textContent = txt;
   document.getElementById('notifPopup').classList.add('show');
   if (navigator.vibrate) navigator.vibrate([200,100,200]);
-  if (navigator.vibrate) navigator.vibrate([200,100,200]);
-bunyiOrder(); // ← tambah ini
-  setTimeout(() => document.getElementById('notifPopup').classList.remove('show'), 15000);
+
+  // Auto hilang setelah 15 detik
+  setTimeout(() => {
+    document.getElementById('notifPopup').classList.remove('show');
+  }, 15000);
 }
 
 window.ambilOrderFromNotif = function() {

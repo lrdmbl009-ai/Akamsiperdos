@@ -376,8 +376,8 @@ main{padding-bottom:80px;}
     <div class="os-btns">
       <button class="os-btn track" onclick="openTrackMap()">🗺️ Lacak</button>
       <button class="os-btn chat" id="osChatBtn" onclick="openChatFromOrder()">💬 Chat</button>
-      <button class="os-btn cancel" onclick="cancelMyOrder()">❌ Batal</button>
-    </div>
+      <button class="os-btn cancel" id="osCancelBtn" onclick="cancelMyOrder()">❌ Batal</button>
+      </div>
   </div>
 
   <div class="sec-title">🚀 Pilih Layanan</div>
@@ -1038,13 +1038,48 @@ window.showOrderStatus = function() {
 };
 
 window.cancelMyOrder = async function() {
-  if (!activeOrderId || !confirm('Batalkan pesanan ini?')) return;
-  await update(ref(db, 'orders/' + activeOrderId), { status:'dibatalkan_pelanggan', batalWaktu: serverTimestamp() });
-  await remove(ref(db, `chats/order_${activeOrderId}`));
-  localStorage.removeItem('myOrderId_' + currentUser?.uid);
-  activeOrderId = null;
-  document.getElementById('orderStatusCard').classList.remove('show');
-  toast('❌ Pesanan dibatalkan');
+  if (!activeOrderId) return;
+  if (!confirm('Yakin mau batalkan pesanan ini?')) return;
+
+  const btn = document.getElementById('osCancelBtn');
+  if (btn) { btn.innerHTML = '⏳'; btn.disabled = true; }
+
+  try {
+    // Update status ke dibatalkan — driver akan detect otomatis
+    await update(ref(db, 'orders/' + activeOrderId), {
+      status: 'dibatalkan_pelanggan',
+      batalWaktu: serverTimestamp(),
+      batalOleh: 'pelanggan'
+    });
+
+    // Hapus chat terkait
+    await remove(ref(db, 'chats/order_' + activeOrderId));
+
+    // Bersihkan data lokal
+    localStorage.removeItem('myOrderId_' + (currentUser?.uid || ''));
+
+    // Stop listener order
+    if (orderListener) {
+      off(orderListener);
+      orderListener = null;
+    }
+    if (driverLocListener) {
+      off(driverLocListener);
+      driverLocListener = null;
+    }
+
+    activeOrderId   = null;
+    activeOrderData = null;
+
+    // Sembunyikan card order
+    document.getElementById('orderStatusCard').classList.remove('show');
+    toast('❌ Pesanan berhasil dibatalkan');
+
+  } catch(e) {
+    toast('❌ Gagal batalkan: ' + e.message);
+  }
+
+  if (btn) { btn.innerHTML = '❌ Batal'; btn.disabled = false; }
 };
 
 // ── CHAT ──
