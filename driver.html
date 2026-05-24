@@ -554,11 +554,24 @@ function initDriver() {
 
   // Cek active order dari Firebase
   const savedOrderId = localStorage.getItem('activeOrderId_' + driverData.uid);
-  if (savedOrderId) {
-    activeOrderId = savedOrderId;
-    showActiveOrder(savedOrderId);
-    listenActiveOrder(savedOrderId);
-  }
+if (savedOrderId) {
+  // Cek dulu apakah order masih valid di Firebase
+  get(ref(db, 'orders/' + savedOrderId)).then(snap => {
+    const data = snap.val();
+    if (!data || ['dibatalkan_pelanggan','dibatalkan_admin',
+                  'ditolak_resto','selesai','dibatalkan'].includes(data.status)) {
+      // Order sudah tidak valid — bersihkan
+      localStorage.removeItem('activeOrderId_' + driverData.uid);
+      toast('ℹ️ Order sebelumnya sudah selesai/dibatalkan');
+    } else {
+      // Order masih valid — tampilkan
+      activeOrderId = savedOrderId;
+      showActiveOrder(savedOrderId);
+      listenActiveOrder(savedOrderId);
+    }
+  }).catch(() => {
+    localStorage.removeItem('activeOrderId_' + driverData.uid);
+  });
 }
 
 // ── STATS dari Firebase ──
@@ -659,7 +672,6 @@ function listenOrders() {
 }
 
 function listenActiveOrder(orderId) {
-  // Hapus listener lama
   if (listeners.activeOrder) {
     listeners.activeOrder();
     delete listeners.activeOrder;
@@ -667,26 +679,32 @@ function listenActiveOrder(orderId) {
   const orderRef = ref(db, 'orders/' + orderId);
   onValue(orderRef, snap => {
     const data = snap.val();
+
+    // Order tidak ada di database
     if (!data) {
-      // Order dihapus dari database
       toast('⚠️ Order tidak ditemukan');
       resetActiveOrder();
       return;
     }
-    // Cek jika order dibatalkan
-    if (['dibatalkan_pelanggan','dibatalkan_admin','ditolak_resto'].includes(data.status)) {
-      toast('❌ Order dibatalkan oleh ' +
-        (data.status === 'dibatalkan_pelanggan' ? 'pelanggan' :
-         data.status === 'dibatalkan_admin' ? 'admin' : 'resto'));
+
+    // Order dibatalkan pelanggan/admin atau ditolak resto
+    if (['dibatalkan_pelanggan','dibatalkan_admin',
+         'ditolak_resto','dibatalkan'].includes(data.status)) {
+      const siapa = data.status === 'dibatalkan_pelanggan' ? 'pelanggan'
+                  : data.status === 'dibatalkan_admin'    ? 'admin'
+                  : 'resto';
+      toast('❌ Order dibatalkan oleh ' + siapa);
       resetActiveOrder();
       return;
     }
-    // Cek jika order selesai
+
+    // Order selesai
     if (data.status === 'selesai') {
-      toast('🎉 Order selesai!');
       resetActiveOrder();
       return;
     }
+
+    // Order masih aktif — update tampilan
     updateActiveOrder(data, orderId);
   });
   listeners.activeOrder = () => off(orderRef);
@@ -1078,6 +1096,55 @@ async function selesaiOrder() {
   document.getElementById('btnPickup').style.display = '';
   pendingOrderId = null;
   if (listeners.activeOrder) { listeners.activeOrder(); delete listeners.activeOrder; }
+}
+
+function resetActiveOrder() {
+  // Stop listener
+  if (listeners.activeOrder) {
+    listeners.activeOrder();
+    delete listeners.activeOrder;
+  }
+  // Bersihkan data
+  activeOrderId   = null;
+  activeOrderData = null;
+  pendingOrderId  = null;
+
+  // Hapus dari localStorage
+  if (driverData?.uid) {
+    localStorage.removeItem('activeOrderId_' + driverData.uid);
+  }
+
+  // Sembunyikan panel order aktif
+  document.getElementById('activeOrderDiv').classList.remove('show');
+
+  // Reset tombol pickup
+  const btnPickup = document.getElementById('btnPickup');
+  if (btnPickup) btnPickup.style.display = '';
+
+  // Sembunyikan ETA bar
+  const etaBar = document.getElementById('mapEtaBar');
+  if (etaBar) etaBar.style.display = 'none';
+
+  // Reset map markers
+  if (pelangganMarker && driverMap) {
+    driverMap.removeLayer(pelangganMarker);
+    pelangganMarker = null;
+  }
+  if (pickupMarker && driverMap) {
+    driverMap.removeLayer(pickupMarker);
+    pickupMarker = null;
+  }
+  if (routeLine && driverMap) {
+    driverMap.removeLayer(routeLine);
+    routeLine = null;
+  }
+
+  // Mulai listen order baru jika online
+  if (isOnline) {
+    setTimeout(() => listenOrders(), 500);
+  }
+
+  toast('🔄 Siap menerima order baru!');
 }
 
 window.batalOrder = async function() {
