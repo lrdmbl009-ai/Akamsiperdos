@@ -205,7 +205,18 @@ main{padding-bottom:80px;}
 .track-topbar{display:flex;align-items:center;justify-content:space-between;background:var(--dark2);padding:13px 15px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;}
 
 /* ── TRACK INFO PANEL ── */
-.track-info{position:absolute;bottom:0;left:0;right:0;background:var(--dark2);border-radius:20px 20px 0 0;padding:16px;z-index:10;box-shadow:0 -8px 30px rgba(0,0,0,.4);}
+.track-info{
+position:absolute;
+bottom:0;
+left:0;
+right:0;
+background:rgba(15,23,42,.96);
+border-radius:20px 20px 0 0;
+padding:16px;
+z-index:10;
+box-shadow:0 -8px 30px rgba(0,0,0,.4);
+color:#fff;
+}
 .track-driver-card{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07);}
 .track-driver-avatar{width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#00C9B1,#4ECDC4);display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 4px 14px rgba(78,205,196,.4);flex-shrink:0;position:relative;}
 .track-driver-online{position:absolute;bottom:2px;right:2px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--dark2);box-shadow:0 0 6px var(--accent);}
@@ -1365,6 +1376,14 @@ window.openTrackMap = function() {
         dragging: true,
         tap: true
       }).setView([-0.8365, 119.8927], 15);
+      const tondoBounds = L.latLngBounds(
+  [-0.8650, 119.8750],
+  [-0.8250, 119.9150]
+);
+
+trackMap.setMaxBounds(tondoBounds);
+
+trackMap.setMinZoom(13);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19, opacity: 0.88
