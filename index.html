@@ -888,13 +888,23 @@ async function submitOrder(orderData, btnId, btnLabel) {
   const btn = document.getElementById(btnId);
   btn.innerHTML = '<div class="spinner"></div> Memproses...'; btn.disabled = true;
   try {
+    // Ambil nama pelanggan dulu sebelum buat object
+    const pelangganSnap = await get(ref(db, 'pelanggan/' + currentUser.uid));
+    const pelangganNama = pelangganSnap.val()?.nama || currentUser.email?.split('@')[0] || 'Pelanggan';
+
+    // Buat data order lengkap
     const dataFinal = {
       ...orderData,
-      pelangganId: currentUser.uid,
-      pelanggan: (await get(ref(db, `pelanggan/${currentUser.uid}`))).val()?.nama || 'Pelanggan',
-      waktu: serverTimestamp(),
-      waktuStr: nowStr()
+      pelangganId:   currentUser.uid,
+      pelanggan:     pelangganNama,
+      pelangganEmail:currentUser.email || '',
+      waktu:         Date.now(),           // pakai Date.now() bukan serverTimestamp() agar bisa dibaca langsung
+      waktuStr:      nowStr(),
+      createdAt:     serverTimestamp()     // serverTimestamp hanya untuk sorting, bukan display
     };
+
+    console.log('📦 Data order dikirim:', dataFinal);
+
     const newRef = await push(ref(db, 'orders'), dataFinal);
     localStorage.setItem('myOrderId_' + currentUser.uid, newRef.key);
     activeOrderId = newRef.key;
@@ -902,7 +912,11 @@ async function submitOrder(orderData, btnId, btnLabel) {
     showOrderStatusCard(newRef.key, dataFinal);
     listenMyOrder(newRef.key);
     return newRef.key;
-  } catch(e) { toast('❌ Gagal: ' + e.message); return null; }
+  } catch(e) {
+    console.error('Submit order error:', e);
+    toast('❌ Gagal: ' + e.message);
+    return null;
+  }
   finally { btn.innerHTML = btnLabel; btn.disabled = false; }
 }
 

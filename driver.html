@@ -429,18 +429,25 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await get(ref(db, 'drivers/' + user.uid));
     if (snap.exists()) {
       driverData = { ...snap.val(), uid: user.uid };
+      // Pastikan email tersimpan jika belum ada
+      if (!driverData.email && user.email) {
+        await update(ref(db, 'drivers/' + user.uid), { email: user.email });
+        driverData.email = user.email;
+      }
     } else {
       const tempData = JSON.parse(sessionStorage.getItem('driverTempData') || '{}');
+      // Nama dari form daftar, fallback ke bagian email sebelum @
+      const namaFallback = user.email ? user.email.split('@')[0] : 'Driver';
       driverData = {
-        uid: user.uid,
-        nama: tempData.nama || 'Driver',
-        kendaraan: tempData.kendaraan || 'Motor',
-        platNomor: tempData.plat || '–',
-        noWA: tempData.wa || '',
-        email: user.email || '',
-        totalOrders: 0,
+        uid:           user.uid,
+        nama:          tempData.nama      || namaFallback,
+        kendaraan:     tempData.kendaraan || 'Motor',
+        platNomor:     tempData.plat      || '–',
+        noWA:          tempData.wa        || '',
+        email:         user.email         || '',
+        totalOrders:   0,
         totalPendapatan: 0,
-        online: false
+        online:        false
       };
       await set(ref(db, 'drivers/' + user.uid), driverData);
       sessionStorage.removeItem('driverTempData');
@@ -980,34 +987,46 @@ window.ambilOrderById = async function(id) {
   const order = snap.val();
   if (!order) { toast('❌ Order tidak ditemukan'); return; }
   if (order.driverId) { toast('❌ Order sudah diambil driver lain!'); return; }
+
+  // Simpan data order asli SEBELUM update (supaya data lengkap tersedia)
+  const orderAsli = { ...order };
+
+  // Update Firebase dengan data driver
   await update(orderRef, {
-    driverId:       driverData.uid,
-    driverNama:     driverData.nama,
-    driverKendaraan:driverData.kendaraan,
-    driverEmail:    driverData.email    || '',
-    driverPlat:     driverData.platNomor|| '–',
-    driverWA:       driverData.noWA     || '',
-    driverRating:   driverData.rating   || '4.9',
-    status: 'driver_ditemukan',
-    ambilWaktu: serverTimestamp()
+    driverId:        driverData.uid,
+    driverNama:      driverData.nama      || 'Driver',
+    driverKendaraan: driverData.kendaraan  || 'Motor',
+    driverEmail:     driverData.email      || '',
+    driverPlat:      driverData.platNomor  || '–',
+    driverWA:        driverData.noWA       || '',
+    driverRating:    driverData.rating     || '4.9',
+    status:          'driver_ditemukan',
+    ambilWaktu:      Date.now()
   });
 
-activeOrderId = id;
-localStorage.setItem('activeOrderId_' + driverData.uid, id);
-showActiveOrder(id);
+  // Gabung data order asli + data driver untuk ditampilkan
+  const dataLengkap = {
+    ...orderAsli,
+    driverId:        driverData.uid,
+    driverNama:      driverData.nama      || 'Driver',
+    driverKendaraan: driverData.kendaraan  || 'Motor',
+    driverPlat:      driverData.platNomor  || '–',
+    driverWA:        driverData.noWA       || '',
+    driverRating:    driverData.rating     || '4.9',
+    status:          'driver_ditemukan'
+  };
 
-// Tunggu sebentar lalu ambil data terbaru dari Firebase
-setTimeout(async () => {
-  const updatedSnap = await get(orderRef);
-  const updatedOrder = updatedSnap.val();
-  if (updatedOrder) {
-    activeOrderData = updatedOrder;
-    updateActiveOrder(updatedOrder, id);
-  }
-}, 800);
+  activeOrderId   = id;
+  activeOrderData = dataLengkap;
+  localStorage.setItem('activeOrderId_' + driverData.uid, id);
 
-listenActiveOrder(id);
-bunyiSukses();
+  // Tampilkan order dengan data lengkap LANGSUNG (tanpa setTimeout)
+  showActiveOrder(id);
+  updateActiveOrder(dataLengkap, id);
+
+  // Start listener untuk perubahan selanjutnya
+  listenActiveOrder(id);
+  bunyiSukses();
 toast('✅ Order berhasil diambil!');
 document.getElementById('notifPopup').classList.remove('show');
 };
@@ -1181,7 +1200,13 @@ function updateActiveOrder(data, id) {
   activeOrderData = data;
   
   document.getElementById('aoPelanggan').textContent = data.pelanggan || data.pelangganNama || '–';
-  document.getElementById('aoLayanan').textContent = (data.tipe || '–').charAt(0).toUpperCase() + (data.tipe || '').slice(1);
+  const tipeLabel = {
+    makanan:   '🍔 Pesan Makanan',
+    penumpang: '🏍️ Antar Penumpang',
+    barang:    '📦 Kirim Barang',
+    lainnya:   '✨ Layanan Lainnya'
+  };
+  document.getElementById('aoLayanan').textContent = tipeLabel[data.tipe] || (data.tipe || '–');
   
   let dariText = '–';
   let keText = '–';
