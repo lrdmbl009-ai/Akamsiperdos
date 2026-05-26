@@ -210,12 +210,23 @@ position:absolute;
 bottom:0;
 left:0;
 right:0;
-background:rgba(15,23,42,.96);
+
+background:#0f172a !important;
+
 border-radius:20px 20px 0 0;
+
 padding:16px;
-z-index:10;
-box-shadow:0 -8px 30px rgba(0,0,0,.4);
-color:#fff;
+
+z-index:9999;
+
+box-shadow:0 -8px 30px rgba(0,0,0,.75);
+
+color:#fff !important;
+
+opacity:1 !important;
+
+backdrop-filter:none !important;
+-webkit-backdrop-filter:none !important;
 }
 .track-driver-card{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07);}
 .track-driver-avatar{width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#00C9B1,#4ECDC4);display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 4px 14px rgba(78,205,196,.4);flex-shrink:0;position:relative;}
@@ -229,15 +240,21 @@ color:#fff;
 .track-stat-val{font-family:'Nunito',sans-serif;font-weight:900;font-size:1rem;color:var(--accent);}
 .track-stat-lbl{font-size:.6rem;color:var(--muted);margin-top:2px;}
 
-.track-status-bar{background:linear-gradient(135deg,rgba(0,200,151,.1),rgba(78,205,196,.05));border:1px solid rgba(0,200,151,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+.track-status-bar{
+background:#132238;
+border:1px solid rgba(0,200,151,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
 .track-status-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:trackPulse 1.5s ease infinite;}
 @keyframes trackPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,200,151,.4)}50%{box-shadow:0 0 0 6px rgba(0,200,151,0)}}
 .track-status-text{font-family:'Nunito',sans-serif;font-weight:700;font-size:.82rem;color:var(--accent);}
 .track-status-sub{font-size:.68rem;color:var(--muted);margin-top:2px;}
 
 .track-btns{display:flex;gap:8px;}
-.track-chat-btn{flex:1;padding:11px;border-radius:12px;border:1px solid rgba(78,205,196,.3);background:rgba(78,205,196,.1);color:var(--passenger);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;}
-.track-call-btn{padding:11px 14px;border-radius:12px;border:1px solid rgba(255,195,0,.3);background:rgba(255,195,0,.1);color:var(--secondary);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;}
+.track-chat-btn{
+background:#163847;
+color:var(--passenger);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;}
+.track-call-btn{
+background:#3b3212;
+color:var(--secondary);font-family:'Nunito',sans-serif;font-size:.84rem;font-weight:800;cursor:pointer;}
 
 /* ── MARKER STYLES ── */
 .pelanggan-marker-wrap{position:relative;}
@@ -549,29 +566,35 @@ color:#fff;
   </div>
   <div id="trackMapEl" style="flex:1;position:relative"></div>
   <div class="track-info">
-    <!-- Driver Card -->
+    <!-- Status Bar - paling atas seperti Gojek -->
+    <div class="track-status-bar" id="trackStatusBar">
+      <div class="track-status-dot"></div>
+      <div style="flex:1">
+        <div class="track-status-text" id="trackStatus">Mencari driver...</div>
+        <div class="track-status-sub" id="trackStatusSub">Mohon tunggu sebentar</div>
+      </div>
+      <div style="font-family:Nunito,sans-serif;font-weight:900;font-size:1.1rem;color:var(--accent)" id="trackETA">–</div>
+    </div>
+
+    <!-- Driver Card - seperti Gojek -->
     <div class="track-driver-card">
       <div class="track-driver-avatar">
         🏍️
         <div class="track-driver-online"></div>
       </div>
-      <div style="flex:1">
+      <div style="flex:1;min-width:0">
         <div class="track-driver-name" id="trackDriverName">Mencari driver...</div>
         <div class="track-driver-vehicle" id="trackDriverVehicle">–</div>
-        <div class="track-driver-rating">⭐ 4.9 · 120 perjalanan</div>
+        <div class="track-driver-rating" id="trackDriverRating">⭐ 4.9 · 120 perjalanan</div>
       </div>
-      <div style="text-align:right">
-        <div style="font-family:Nunito,sans-serif;font-weight:800;font-size:.72rem;color:var(--muted)">Plat</div>
-        <div style="font-family:Nunito,sans-serif;font-weight:900;font-size:.82rem;color:#fff" id="trackPlat">–</div>
+      <div style="text-align:center;background:rgba(255,255,255,.07);border-radius:12px;padding:8px 12px;min-width:70px">
+        <div style="font-size:.62rem;color:var(--muted);font-weight:600;margin-bottom:4px">PLAT</div>
+        <div style="font-family:Nunito,sans-serif;font-weight:900;font-size:.88rem;color:#fff;letter-spacing:1px" id="trackPlat">–</div>
       </div>
     </div>
 
     <!-- Stats Row -->
     <div class="track-stats">
-      <div class="track-stat">
-        <div class="track-stat-val" id="trackETA">–</div>
-        <div class="track-stat-lbl">⏱ Estimasi</div>
-      </div>
       <div class="track-stat">
         <div class="track-stat-val" id="trackDist">–</div>
         <div class="track-stat-lbl">📏 Jarak</div>
@@ -580,21 +603,20 @@ color:#fff;
         <div class="track-stat-val" id="trackSpeed">–</div>
         <div class="track-stat-lbl">🚀 Kecepatan</div>
       </div>
-    </div>
-
-    <!-- Status Bar -->
-    <div class="track-status-bar">
-      <div class="track-status-dot"></div>
-      <div>
-        <div class="track-status-text" id="trackStatus">Mencari driver...</div>
-        <div class="track-status-sub" id="trackStatusSub">Mohon tunggu sebentar</div>
+      <div class="track-stat">
+        <div class="track-stat-val" id="trackTarif">–</div>
+        <div class="track-stat-lbl">💰 Tarif</div>
       </div>
     </div>
 
-    <!-- Action Buttons -->
+    <!-- Action Buttons - seperti Gojek -->
     <div class="track-btns">
-      <button class="track-chat-btn" onclick="openChatFromOrder()">💬 Chat Driver</button>
-      <button class="track-call-btn" onclick="openChatFromOrder()">📞 Hubungi</button>
+      <button class="track-chat-btn" onclick="openChatFromOrder()">
+        <span style="font-size:1.1rem">💬</span> Chat Driver
+      </button>
+      <button class="track-call-btn" onclick="hubungiDriver()">
+        <span style="font-size:1.1rem">📱</span> WhatsApp
+      </button>
     </div>
   </div>
 </div>
@@ -841,8 +863,21 @@ function resumeActiveOrder() {
   if (!currentUser) return;
   const savedId = localStorage.getItem('myOrderId_' + currentUser.uid);
   if (!savedId) return;
-  activeOrderId = savedId;
-  listenMyOrder(savedId);
+  // Cek dulu ke Firebase apakah order masih valid
+  get(ref(db, 'orders/' + savedId)).then(snap => {
+    const data = snap.val();
+    if (!data || ['dibatalkan_pelanggan','dibatalkan_admin',
+                  'ditolak_resto','selesai','dibatalkan'].includes(data.status)) {
+      // Order tidak valid — hapus dari localStorage
+      localStorage.removeItem('myOrderId_' + currentUser.uid);
+    } else {
+      // Order masih aktif — tampilkan
+      activeOrderId = savedId;
+      listenMyOrder(savedId);
+    }
+  }).catch(() => {
+    localStorage.removeItem('myOrderId_' + currentUser.uid);
+  });
 }
 
 // ── SUBMIT HELPERS ──
@@ -887,11 +922,24 @@ window.submitOrderPenumpang = async function() {
   if (!pts.from || !pts.to) { toast('⚠️ Lengkapi lokasi jemput & tujuan!'); return; }
   const d = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
   const price = Math.max(8000, Math.round(d * vehicleRate / 500) * 500);
-  const id = await submitOrder({
-    tipe:'penumpang', dari:pts.from.addr, dariLat:pts.from.lat, dariLng:pts.from.lng,
-    ke:pts.to.addr, keLat:pts.to.lat, keLng:pts.to.lng,
-    kendaraan:vehicleName, tarif:'Rp '+price.toLocaleString('id-ID'), jarak:d.toFixed(1)+' km', status:'menunggu_driver'
-  }, 'btnOrderPass', '📍 Pesan Sekarang');
+  
+  const orderData = {
+    tipe: 'penumpang',
+    dari: pts.from.addr,
+    dariLat: pts.from.lat,
+    dariLng: pts.from.lng,
+    ke: pts.to.addr,
+    keLat: pts.to.lat,
+    keLng: pts.to.lng,
+    kendaraan: vehicleName,
+    tarif: 'Rp ' + price.toLocaleString('id-ID'),
+    jarak: d.toFixed(1) + ' km',
+    status: 'menunggu_driver'
+  };
+  
+  console.log('Order data penumpang:', orderData);
+  
+  const id = await submitOrder(orderData, 'btnOrderPass', '📍 Pesan Sekarang');
   if (id) toast('✅ Mencari driver terdekat...');
 };
 
@@ -949,10 +997,7 @@ function updateOrderStatus(data, id) {
 bunyiOrder(); // ← tambah ini
   // Update tracking UI jika terbuka
   if (trackMap) {
-    document.getElementById('trackDriverName').textContent  = data.driverNama || 'Driver';
-    document.getElementById('trackDriverVehicle').textContent = data.driverKendaraan || '–';
-    document.getElementById('trackStatus').textContent     = labels[data.status] || data.status;
-    document.getElementById('trackStatusSub').textContent  = subLabels[data.status] || '';
+    updateTrackUI(data);
   }
   if (data.status === 'selesai') {
     localStorage.removeItem('myOrderId_' + currentUser?.uid);
@@ -973,27 +1018,48 @@ function listenDriverLocation(driverId) {
     const loc = snap.val();
     if (!loc || !trackMap || !driverMarker) return;
     const newPos = [loc.lat, loc.lng];
-    // Smooth move dengan interpolasi
+
+    // Smooth move marker driver
     smoothTrackMarker(driverMarker, newPos, loc.heading || 0);
-    // Update stats
+
+    // Hitung kecepatan dari posisi sebelumnya
     if (prevMarkerPos) {
-      const dist  = haversineTrack(prevMarkerPos[0], prevMarkerPos[1], loc.lat, loc.lng);
-      const speed = Math.round(dist * 3600);
-      document.getElementById('trackSpeed').textContent = speed > 0 ? speed + ' km/j' : '–';
-      // Update jarak dan ETA dari posisi driver ke lokasi pelanggan
-      if (myLocMarker) {
-        const myPos = myLocMarker.getLatLng();
-        const distToMe = haversineTrack(loc.lat, loc.lng, myPos.lat, myPos.lng);
-        const eta = Math.max(1, Math.round(distToMe * 3));
-        document.getElementById('trackETA').textContent  = eta + ' mnt';
-        document.getElementById('trackDist').textContent = distToMe.toFixed(1) + ' km';
-        // Update rute
-        if (trackRouteLine) trackMap.removeLayer(trackRouteLine);
-        trackRouteLine = L.polyline([[loc.lat, loc.lng], [myPos.lat, myPos.lng]], {
-          color:'#4ECDC4', weight:4, opacity:.8, dashArray:'10,8'
-        }).addTo(trackMap);
+      const distMoved = haversineTrack(prevMarkerPos[0], prevMarkerPos[1], loc.lat, loc.lng);
+      const speedKmh  = Math.round(distMoved * 3600);
+      document.getElementById('trackSpeed').textContent = speedKmh > 2 ? speedKmh + ' km/j' : 'Diam';
+    }
+
+    // Tentukan target (pickup atau tujuan) berdasarkan status
+    let targetLat = null, targetLng = null;
+    if (activeOrderData) {
+      if (['driver_ditemukan'].includes(activeOrderData.status) && activeOrderData.dariLat) {
+        targetLat = activeOrderData.dariLat;
+        targetLng = activeOrderData.dariLng;
+      } else if (activeOrderData.keLat) {
+        targetLat = activeOrderData.keLat;
+        targetLng = activeOrderData.keLng;
       }
     }
+
+    // Hitung ETA & jarak dari driver ke target
+    if (targetLat) {
+      const distToTarget = haversineTrack(loc.lat, loc.lng, targetLat, targetLng);
+      const eta          = Math.max(1, Math.round(distToTarget * 3));
+      document.getElementById('trackETA').textContent  = eta + ' mnt';
+      document.getElementById('trackDist').textContent = distToTarget.toFixed(1) + ' km';
+
+      // Update garis rute
+      if (trackRouteLine) trackMap.removeLayer(trackRouteLine);
+      trackRouteLine = L.polyline([[loc.lat, loc.lng],[targetLat, targetLng]], {
+        color:'#4ECDC4', weight:4, opacity:.8, dashArray:'10,8', lineJoin:'round'
+      }).addTo(trackMap);
+
+      // Pan map agar driver & target kelihatan
+      try {
+        trackMap.fitBounds([[loc.lat, loc.lng],[targetLat, targetLng]], { padding:[60,60], maxZoom:16 });
+      } catch(e){}
+    }
+
     prevMarkerPos = newPos;
   });
   driverLocListener = locRef;
@@ -1039,8 +1105,18 @@ function haversineTrack(a, b, c, d) {
 function showOrderStatusCard(id, data) {
   const card = document.getElementById('orderStatusCard');
   card.classList.add('show');
-  document.getElementById('osId').textContent = id.slice(-6).toUpperCase();
-  document.getElementById('osLayanan').textContent = (data.tipe||'–').charAt(0).toUpperCase()+(data.tipe||'').slice(1);
+  document.getElementById('osId').textContent = '#' + id.slice(-6).toUpperCase();
+  const tipeLabel = {
+    makanan: '🍔 Pesan Makanan',
+    penumpang: '🏍️ Antar Penumpang',
+    barang: '📦 Kirim Barang',
+    lainnya: '✨ Layanan Lainnya'
+  };
+  document.getElementById('osLayanan').textContent = tipeLabel[data.tipe] || (data.tipe||'–');
+  // Update driver info jika sudah ada
+  if (data.driverNama) {
+    document.getElementById('osDriver').textContent = data.driverNama + ' · ' + (data.driverKendaraan||'') + ' · ' + (data.driverPlat||'');
+  }
 }
 
 window.showOrderStatus = function() {
@@ -1367,6 +1443,32 @@ window.openTrackMap = function() {
   // Update info driver
   document.getElementById('trackDriverName').textContent    = activeOrderData.driverNama || 'Mencari driver...';
   document.getElementById('trackDriverVehicle').textContent = activeOrderData.driverKendaraan || '–';
+  
+  
+  // Update status langsung dari activeOrderData
+  const labelsTrack = {
+    menunggu_konfirmasi: '⏳ Menunggu Konfirmasi',
+    dikonfirmasi: '✅ Dikonfirmasi',
+    menunggu_driver: '🔍 Mencari Driver...',
+    driver_ditemukan: '🏍️ Driver Menuju Lokasi Jemput',
+    dijemput: '📍 Dalam Perjalanan ke Tujuan',
+    selesai: '🎉 Perjalanan Selesai'
+  };
+  const subTrack = {
+    driver_ditemukan: 'Driver sedang menuju titik penjemputanmu',
+    dijemput: 'Kamu sudah dijemput, menuju tujuan',
+    selesai: 'Terima kasih telah menggunakan AkamsiPerdos!'
+  };
+  if (activeOrderData.status) {
+    document.getElementById('trackStatus').textContent =
+      labelsTrack[activeOrderData.status] || activeOrderData.status;
+    document.getElementById('trackStatusSub').textContent =
+      subTrack[activeOrderData.status] || 'Realtime tracking aktif';
+  }
+  // Update plat kendaraan jika ada
+  document.getElementById('trackPlat').textContent =
+    activeOrderData.driverPlat || activeOrderData.platNomor || '–';
+  
 
   setTimeout(() => {
     if (!trackMap) {
@@ -1445,6 +1547,66 @@ trackMap.setMinZoom(13);
   }, 150);
 };
 window.closeTrackMap = function() { document.getElementById('trackScreen').classList.remove('on'); };
+
+// ── UPDATE SEMUA INFO TRACKING UI ──
+function updateTrackUI(data) {
+  if (!data) return;
+
+  const labelsTrack = {
+    menunggu_konfirmasi: '⏳ Menunggu Konfirmasi',
+    dikonfirmasi:        '✅ Pesanan Dikonfirmasi',
+    menunggu_driver:     '🔍 Mencari Driver Terdekat...',
+    driver_ditemukan:    '🏍️ Driver Menuju Lokasi Jemput',
+    dijemput:            '📍 Dalam Perjalanan ke Tujuan',
+    selesai:             '🎉 Perjalanan Selesai!'
+  };
+  const subTrack = {
+    menunggu_driver:  'Sabar ya, driver segera ditemukan',
+    driver_ditemukan: 'Driver sedang menuju titik penjemputanmu',
+    dijemput:         'Kamu sudah dijemput, menuju tujuan',
+    selesai:          'Terima kasih menggunakan AkamsiPerdos!'
+  };
+
+  // Status
+  document.getElementById('trackStatus').textContent    = labelsTrack[data.status] || data.status;
+  document.getElementById('trackStatusSub').textContent = subTrack[data.status]    || 'Realtime tracking aktif';
+
+  // Info driver
+  document.getElementById('trackDriverName').textContent    = data.driverNama     || 'Mencari driver...';
+  document.getElementById('trackDriverVehicle').textContent = data.driverKendaraan|| '–';
+  document.getElementById('trackPlat').textContent          = data.driverPlat     || '–';
+  document.getElementById('trackDriverRating').textContent  = '⭐ ' + (data.driverRating||'4.9') + ' · Driver terverifikasi';
+
+  // Tarif
+  document.getElementById('trackTarif').textContent = data.tarif || '–';
+
+  // Warna status bar
+  const bar = document.getElementById('trackStatusBar');
+  if (bar) {
+    if (data.status === 'selesai') {
+      bar.style.background = 'linear-gradient(135deg,rgba(0,200,151,.15),rgba(0,200,151,.05))';
+      bar.style.borderColor = 'rgba(0,200,151,.3)';
+    } else if (data.status === 'driver_ditemukan' || data.status === 'dijemput') {
+      bar.style.background = 'linear-gradient(135deg,rgba(78,205,196,.12),rgba(78,205,196,.04))';
+      bar.style.borderColor = 'rgba(78,205,196,.3)';
+    }
+  }
+}
+window.hubungiDriver = function() {
+  const wa = activeOrderData?.driverWA || activeOrderData?.driverNoWA || '';
+  if (!wa || wa === '') {
+    toast('📱 Nomor WA driver tidak tersedia');
+    openChatFromOrder(); // fallback ke chat
+    return;
+  }
+  // Format nomor WA
+  let noWA = wa.replace(/[^0-9+]/g, '');
+  if (noWA.startsWith('08')) noWA = '+62' + noWA.slice(1);
+  const pesan = encodeURIComponent(
+    `Halo Kak ${activeOrderData?.driverNama||'Driver'}, saya pelanggan AkamsiPerdos. Order #${activeOrderId?.slice(-6).toUpperCase()||''}. Bisa konfirmasi posisi?`
+  );
+  window.open(`https://wa.me/${noWA.replace('+','')}?text=${pesan}`, '_blank');
+};
 
 // ── TOUCH SWIPE SHEETS ──
 let _sy=0;

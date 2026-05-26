@@ -233,6 +233,14 @@ main{padding:14px 14px 100px;}
           <option value="Open-Kap">🛻 Open-Kap</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Plat Nomor Kendaraan</label>
+        <input type="text" class="form-input" id="daftarPlat" placeholder="contoh: DN 1234 AB" style="text-transform:uppercase">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nomor WhatsApp (format: +62xxx)</label>
+        <input type="tel" class="form-input" id="daftarWA" placeholder="+628xxxxxxxxxx">
+      </div>
       <button class="btn-login" id="btnDaftar" onclick="daftarDriver()">✅ Daftar Sekarang</button>
       <div style="text-align:center;margin-top:10px;font-size:.75rem;color:var(--muted)">
         Sudah punya akun? <span style="color:var(--primary);cursor:pointer;font-weight:700" onclick="showLogin()">Masuk di sini</span>
@@ -289,6 +297,7 @@ main{padding:14px 14px 100px;}
   <div class="driver-card">
     <div class="driver-name" id="driverNameDisplay">–</div>
     <div class="driver-info-sub" id="driverInfoDisplay">–</div>
+    <div class="driver-info-sub" id="driverPlatDisplay" style="color:var(--secondary);font-weight:700;margin-top:2px">–</div>
     <div class="driver-stats">
       <div class="stat-box"><div class="stat-val" id="statOrder">0</div><div class="stat-lbl">Order Hari Ini</div></div>
       <div class="stat-box"><div class="stat-val" id="statPendapatan">0</div><div class="stat-lbl">Pendapatan</div></div>
@@ -422,7 +431,17 @@ onAuthStateChanged(auth, async (user) => {
       driverData = { ...snap.val(), uid: user.uid };
     } else {
       const tempData = JSON.parse(sessionStorage.getItem('driverTempData') || '{}');
-      driverData = { uid: user.uid, nama: tempData.nama||'Driver', kendaraan: tempData.kendaraan||'Motor', email: user.email||'', totalOrders:0, totalPendapatan:0, online:false };
+      driverData = {
+        uid: user.uid,
+        nama: tempData.nama || 'Driver',
+        kendaraan: tempData.kendaraan || 'Motor',
+        platNomor: tempData.plat || '–',
+        noWA: tempData.wa || '',
+        email: user.email || '',
+        totalOrders: 0,
+        totalPendapatan: 0,
+        online: false
+      };
       await set(ref(db, 'drivers/' + user.uid), driverData);
       sessionStorage.removeItem('driverTempData');
     }
@@ -465,15 +484,19 @@ window.daftarDriver = async function() {
   const email     = document.getElementById('daftarEmail').value.trim();
   const pass      = document.getElementById('daftarPass').value;
   const kendaraan = document.getElementById('daftarKendaraan').value;
-  if (!nama || !email || !pass) { showErr('Semua field wajib diisi'); return; }
+  const plat      = document.getElementById('daftarPlat').value.trim().toUpperCase();
+  const wa        = document.getElementById('daftarWA').value.trim();
+  if (!nama || !email || !pass) { showErr('Nama, email dan password wajib diisi'); return; }
+  if (!plat) { showErr('Plat nomor kendaraan wajib diisi'); return; }
   if (pass.length < 6) { showErr('Password minimal 6 karakter'); return; }
   const btn = document.getElementById('btnDaftar');
   btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    // Simpan data driver sementara
-    sessionStorage.setItem('driverTempData', JSON.stringify({ nama, kendaraan, email }));
-    // Kirim verifikasi email
+    // Simpan data driver sementara termasuk plat & WA
+    sessionStorage.setItem('driverTempData', JSON.stringify({
+      nama, kendaraan, email, plat, wa
+    }));
     await sendEmailVerification(cred.user);
     document.getElementById('verifyEmailDisplay').textContent = email;
     showStep('step3');
@@ -660,7 +683,11 @@ function startLocationTracking() {
         smoothMoveMarker(driverSelfMarker, newPos, heading);
         // Update ETA jika ada order aktif
         if (activeOrderId && currentDriverPos) {
-          updateETA(lat, lng);
+          if (activeOrderData) {
+  const tLat = activeOrderData.dariLat || activeOrderData.keLat;
+  const tLng = activeOrderData.dariLng || activeOrderData.keLng;
+  updateETA(lat, lng, tLat, tLng);
+}
         }
       }
       prevDriverPos = currentDriverPos;
@@ -891,14 +918,45 @@ function showNotifPopup(id, order) {
   shownNotifIds.add(id);
   localStorage.setItem('shownNotifIds', JSON.stringify([...shownNotifIds]));
 
-  pendingOrderId = id;
-  let txt = `🆔 #${id.slice(-6).toUpperCase()}\n👤 ${order.pelanggan||'–'}\n`;
-  if (order.tipe==='makanan')   txt += `🍔 ${order.menu||'–'}\n📍 ${order.alamat||'–'}`;
-  if (order.tipe==='penumpang') txt += `📍 ${order.dari||'–'}\n🏁 ${order.ke||'–'}\n💰 ${order.tarif||'–'}`;
-  if (order.tipe==='barang')    txt += `📦 ${order.dari||'–'} → ${order.ke||'–'}`;
-  document.getElementById('notifBody').textContent = txt;
+ pendingOrderId = id;
+
+// Hitung jarak driver ke pelanggan
+let jarakTxt = '';
+if (currentDriverPos && order.dariLat && order.dariLng) {
+  const jarak = haversineDriver(currentDriverPos[0], currentDriverPos[1], order.dariLat, order.dariLng);
+  const menit = Math.max(1, Math.round(jarak * 3));
+  jarakTxt = `\n📏 Jarak ke jemput: ${jarak.toFixed(1)} km (~${menit} mnt)`;
+} else if (currentDriverPos && order.keLat && order.keLng) {
+  const jarak = haversineDriver(currentDriverPos[0], currentDriverPos[1], order.keLat, order.keLng);
+  jarakTxt = `\n📏 Jarak: ${jarak.toFixed(1)} km`;
+}
+
+let txt = `🆔 #${id.slice(-6).toUpperCase()}\n`;
+txt += `👤 ${order.pelanggan || order.pelangganNama || 'Pelanggan'}\n`;
+
+if (order.tipe==='makanan') {
+  txt += `🍔 ${order.menu||'–'}\n`;
+  txt += `📍 Antar ke: ${order.alamat||'–'}`;
+  txt += jarakTxt;
+} else if (order.tipe==='penumpang') {
+  txt += `📍 Dari: ${order.dari||'–'}\n`;
+  txt += `🏁 Ke: ${order.ke||'–'}\n`;
+  txt += `💰 Tarif: ${order.tarif||'–'}`;
+  txt += jarakTxt;
+  // Hitung jarak pickup ke tujuan
+  if (order.dariLat && order.keLat) {
+    const jarakRute = haversineDriver(order.dariLat, order.dariLng, order.keLat, order.keLng);
+    txt += `\n🗺️ Jarak rute: ${jarakRute.toFixed(1)} km`;
+  }
+} else if (order.tipe==='barang') {
+  txt += `📦 ${order.dari||'–'} → ${order.ke||'–'}`;
+  txt += jarakTxt;
+}
+
+document.getElementById('notifBody').textContent = txt;
   document.getElementById('notifPopup').classList.add('show');
   if (navigator.vibrate) navigator.vibrate([200,100,200]);
+  bunyiOrder();
 
   // Auto hilang setelah 15 detik
   setTimeout(() => {
@@ -923,21 +981,35 @@ window.ambilOrderById = async function(id) {
   if (!order) { toast('❌ Order tidak ditemukan'); return; }
   if (order.driverId) { toast('❌ Order sudah diambil driver lain!'); return; }
   await update(orderRef, {
-    driverId: driverData.uid,
-    driverNama: driverData.nama,
-    driverKendaraan: driverData.kendaraan,
-    driverEmail: driverData.email || '',
+    driverId:       driverData.uid,
+    driverNama:     driverData.nama,
+    driverKendaraan:driverData.kendaraan,
+    driverEmail:    driverData.email    || '',
+    driverPlat:     driverData.platNomor|| '–',
+    driverWA:       driverData.noWA     || '',
+    driverRating:   driverData.rating   || '4.9',
     status: 'driver_ditemukan',
     ambilWaktu: serverTimestamp()
   });
-  activeOrderId = id;
-  localStorage.setItem('activeOrderId_' + driverData.uid, id);
-  showActiveOrder(id);
-  listenActiveOrder(id);
-  toast('✅ Order berhasil diambil!');
-  toast('✅ Order berhasil diambil!');
-bunyiSukses(); // ← tambah ini
-  document.getElementById('notifPopup').classList.remove('show');
+
+activeOrderId = id;
+localStorage.setItem('activeOrderId_' + driverData.uid, id);
+showActiveOrder(id);
+
+// Tunggu sebentar lalu ambil data terbaru dari Firebase
+setTimeout(async () => {
+  const updatedSnap = await get(orderRef);
+  const updatedOrder = updatedSnap.val();
+  if (updatedOrder) {
+    activeOrderData = updatedOrder;
+    updateActiveOrder(updatedOrder, id);
+  }
+}, 800);
+
+listenActiveOrder(id);
+bunyiSukses();
+toast('✅ Order berhasil diambil!');
+document.getElementById('notifPopup').classList.remove('show');
 };
 
 function showActiveOrder(id) {
@@ -1086,16 +1158,13 @@ function calcBearing(lat1, lng1, lat2, lng2) {
 }
 
 // ── UPDATE ETA ──
-function updateETA(driverLat, driverLng) {
-  if (!activeOrderData) return;
-  const targetLat = activeOrderData.dariLat || activeOrderData.keLat;
-  const targetLng = activeOrderData.dariLng || activeOrderData.keLng;
+function updateETA(driverLat, driverLng, targetLat, targetLng) {
   if (!targetLat || !targetLng) return;
   const dist = haversineDriver(driverLat, driverLng, targetLat, targetLng);
-  const mins  = Math.max(1, Math.round(dist * 3));
-  document.getElementById('etaDist').textContent  = dist.toFixed(1) + ' km';
-  document.getElementById('etaText').textContent  = mins + ' menit lagi';
-  document.getElementById('etaSub').textContent   = activeOrderData.status === 'driver_ditemukan'
+  const mins = Math.max(1, Math.round(dist * 3));
+  document.getElementById('etaDist').textContent = dist.toFixed(1) + ' km';
+  document.getElementById('etaText').textContent = mins + ' menit lagi';
+  document.getElementById('etaSub').textContent = activeOrderData?.status === 'driver_ditemukan'
     ? 'Menuju titik jemput' : 'Menuju tujuan';
   document.getElementById('mapEtaBar').style.display = 'flex';
 }
@@ -1107,55 +1176,66 @@ function haversineDriver(a, b, c, d) {
 }
 
 function updateActiveOrder(data, id) {
+  if (!data) return;
+  
   activeOrderData = data;
-  document.getElementById('aoPelanggan').textContent = data.pelanggan || '–';
-  document.getElementById('aoLayanan').textContent   = data.tipe || '–';
-  document.getElementById('aoDari').textContent      = data.dari || data.alamat || data.resto || '–';
-  document.getElementById('aoKe').textContent        = data.ke || data.alamat || '–';
-  document.getElementById('aoTarif').textContent     = data.tarif || 'COD';
-
-  if (!driverMap) return;
-
-  // Hapus marker lama
-  if (pelangganMarker) { driverMap.removeLayer(pelangganMarker); pelangganMarker = null; }
-  if (pickupMarker)    { driverMap.removeLayer(pickupMarker);    pickupMarker    = null; }
-  if (routeLine)       { driverMap.removeLayer(routeLine);       routeLine       = null; }
-
-  // Tampilkan marker sesuai status order
-  if (data.status === 'driver_ditemukan' && data.dariLat) {
-    // Menuju titik JEMPUT
-    pickupMarker = L.marker([data.dariLat, data.dariLng], {
-      icon: createDestIcon('pickup')
-    }).addTo(driverMap).bindPopup('📍 Titik Jemput: ' + (data.dari||'–'));
-
-    // Gambar rute dashed ke pickup
-    if (currentDriverPos) {
-      drawRoute(currentDriverPos, [data.dariLat, data.dariLng]);
-    }
-    driverMap.fitBounds([
-      currentDriverPos || [-0.8365, 119.8927],
-      [data.dariLat, data.dariLng]
-    ], { padding: [40, 40] });
-
-  } else if (data.keLat) {
-    // Menuju TUJUAN
-    pelangganMarker = L.marker([data.keLat, data.keLng], {
-      icon: createDestIcon('dest')
-    }).addTo(driverMap).bindPopup('🏁 Tujuan: ' + (data.ke||'–'));
-
-    // Gambar rute dashed ke tujuan
-    if (currentDriverPos) {
-      drawRoute(currentDriverPos, [data.keLat, data.keLng]);
-    }
-    driverMap.fitBounds([
-      currentDriverPos || [-0.8365, 119.8927],
-      [data.keLat, data.keLng]
-    ], { padding: [40, 40] });
+  
+  document.getElementById('aoPelanggan').textContent = data.pelanggan || data.pelangganNama || '–';
+  document.getElementById('aoLayanan').textContent = (data.tipe || '–').charAt(0).toUpperCase() + (data.tipe || '').slice(1);
+  
+  let dariText = '–';
+  let keText = '–';
+  
+  if (data.tipe === 'makanan') {
+    dariText = data.resto ? 'Resto: ' + data.resto : '–';
+    keText = data.alamat || '–';
+  } else if (data.tipe === 'penumpang') {
+    dariText = data.dari || '–';
+    keText = data.ke || '–';
+  } else if (data.tipe === 'barang') {
+    dariText = data.dari || '–';
+    keText = data.ke || '–';
+  } else {
+    dariText = data.dari || data.alamat || data.resto || '–';
+    keText = data.ke || data.alamat || '–';
   }
-
-  // Update ETA
-  if (currentDriverPos) {
-    updateETA(currentDriverPos[0], currentDriverPos[1]);
+  
+  document.getElementById('aoDari').textContent = dariText;
+  document.getElementById('aoKe').textContent = keText;
+  document.getElementById('aoTarif').textContent = data.tarif || 'Rp 0';
+  
+  if (!driverMap) return;
+  
+  if (pelangganMarker) { driverMap.removeLayer(pelangganMarker); pelangganMarker = null; }
+  if (pickupMarker) { driverMap.removeLayer(pickupMarker); pickupMarker = null; }
+  if (routeLine) { driverMap.removeLayer(routeLine); routeLine = null; }
+  
+  let pickupCoord = null;
+  let destCoord = null;
+  
+  if (data.status === 'driver_ditemukan' && data.dariLat && data.dariLng) {
+    pickupCoord = [data.dariLat, data.dariLng];
+    pickupMarker = L.marker(pickupCoord, {
+      icon: createDestIcon('pickup')
+    }).addTo(driverMap).bindPopup('📍 Jemput: ' + (data.dari || '–'));
+    
+    if (currentDriverPos) {
+      drawRoute(currentDriverPos, pickupCoord);
+      updateETA(currentDriverPos[0], currentDriverPos[1], pickupCoord[0], pickupCoord[1]);
+    }
+    driverMap.fitBounds([currentDriverPos || [-0.8365,119.8927], pickupCoord], { padding: [40,40] });
+    
+  } else if (data.keLat && data.keLng) {
+    destCoord = [data.keLat, data.keLng];
+    pelangganMarker = L.marker(destCoord, {
+      icon: createDestIcon('dest')
+    }).addTo(driverMap).bindPopup('🏁 Tujuan: ' + (data.ke || '–'));
+    
+    if (currentDriverPos) {
+      drawRoute(currentDriverPos, destCoord);
+      updateETA(currentDriverPos[0], currentDriverPos[1], destCoord[0], destCoord[1]);
+    }
+    driverMap.fitBounds([currentDriverPos || [-0.8365,119.8927], destCoord], { padding: [40,40] });
   }
 }
 
