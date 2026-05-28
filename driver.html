@@ -1195,11 +1195,27 @@ function haversineDriver(a, b, c, d) {
 }
 
 function updateActiveOrder(data, id) {
+
   if (!data) return;
-  
+
   activeOrderData = data;
-  
-  document.getElementById('aoPelanggan').textContent = data.pelanggan || data.pelangganNama || '–';
+
+  // Jika data kosong, ambil ulang dari Firebase
+  if (!data.pelanggan || !data.dari || !data.ke) {
+
+    get(ref(db, 'orders/' + id)).then(snap => {
+
+      const fresh = snap.val();
+
+      if (fresh) updateActiveOrder(fresh, id);
+
+    });
+
+    return;
+  }
+
+  document.getElementById('aoPelanggan').textContent =
+    data.pelanggan || data.pelangganNama || '–';
   const tipeLabel = {
     makanan:   '🍔 Pesan Makanan',
     penumpang: '🏍️ Antar Penumpang',

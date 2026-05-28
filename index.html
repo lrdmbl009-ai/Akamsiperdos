@@ -890,7 +890,16 @@ async function submitOrder(orderData, btnId, btnLabel) {
   try {
     // Ambil nama pelanggan dulu sebelum buat object
     const pelangganSnap = await get(ref(db, 'pelanggan/' + currentUser.uid));
-    const pelangganNama = pelangganSnap.val()?.nama || currentUser.email?.split('@')[0] || 'Pelanggan';
+    // Ambil nama dari berbagai sumber
+const pelangganData = pelangganSnap.val();
+const pelangganNama = pelangganData?.nama && pelangganData.nama !== 'Pelanggan'
+  ? pelangganData.nama
+  : currentUser.displayName || currentUser.email?.split('@')[0] || 'Pelanggan';
+
+// Update nama di Firebase jika masih default
+if (!pelangganData?.nama || pelangganData.nama === 'Pelanggan') {
+  update(ref(db, 'pelanggan/' + currentUser.uid), { nama: pelangganNama });
+}
 
     // Buat data order lengkap
     const dataFinal = {
