@@ -343,6 +343,10 @@ color:var(--secondary);font-family:'Nunito',sans-serif;font-size:.84rem;font-wei
         <input type="email" class="form-input" id="daftarEmail" placeholder="email@kamu.com">
       </div>
       <div class="form-group">
+        <label class="form-label">Nomor WhatsApp (format: +62xxx)</label>
+        <input type="tel" class="form-input" id="daftarWA" placeholder="+628xxxxxxxxxx">
+      </div>
+      <div class="form-group">
         <label class="form-label">Password (min. 6 karakter)</label>
         <input type="password" class="form-input" id="daftarPass" placeholder="Buat password...">
       </div>
@@ -483,10 +487,10 @@ color:var(--secondary);font-family:'Nunito',sans-serif;font-size:.84rem;font-wei
     </div>
     <div class="sec-title" style="margin:0 0 9px">🛵 Pilih Kendaraan</div>
     <div class="opt-grid">
-      <div class="opt on" data-rate="2000" onclick="pickVehicle(this)"><div class="opt-icon">🏍️</div><div><div class="opt-name">Motor</div><div class="opt-price">Rp 18.500/km</div></div></div>
-      <div class="opt" data-rate="4000" onclick="pickVehicle(this)"><div class="opt-icon">🚗</div><div><div class="opt-name">Mobil</div><div class="opt-price">Rp 25.000/km</div></div></div>
-      <div class="opt" data-rate="1500" onclick="pickVehicle(this)"><div class="opt-icon">🛵</div><div><div class="opt-name">Sepeda Listrik</div><div class="opt-price">Rp 6.000/km</div></div></div>
-      <div class="opt" data-rate="5000" onclick="pickVehicle(this)"><div class="opt-icon">🚙</div><div><div class="opt-name">Mobil XL</div><div class="opt-price">Rp 30.000/km</div></div></div>
+      <div class="opt on" data-rate="3000" onclick="pickVehicle(this)"><div class="opt-icon">🏍️</div><div><div class="opt-name">Motor</div><div class="opt-price">Rp 3.000/km · min Rp 8.000</div></div></div>
+      <div class="opt" data-rate="5000" onclick="pickVehicle(this)"><div class="opt-icon">🚗</div><div><div class="opt-name">Mobil</div><div class="opt-price">Rp 5.000/km · min Rp 15.000</div></div></div>
+      <div class="opt" data-rate="2000" onclick="pickVehicle(this)"><div class="opt-icon">🛵</div><div><div class="opt-name">Sepeda Listrik</div><div class="opt-price">Rp 2.000/km · min Rp 5.000</div></div></div>
+      <div class="opt" data-rate="7000" onclick="pickVehicle(this)"><div class="opt-icon">🚙</div><div><div class="opt-name">Mobil XL</div><div class="opt-price">Rp 7.000/km · min Rp 20.000</div></div></div>
     </div>
   </div>
   <button class="cta pass" id="btnOrderPass" onclick="submitOrderPenumpang()">📍 Pesan Sekarang</button>
@@ -694,11 +698,13 @@ onAuthStateChanged(auth, async (user) => {
     // Simpan/update data pelanggan di Firebase
     const snap = await get(ref(db, 'pelanggan/' + user.uid));
     if (!snap.exists()) {
-      const tempNama = sessionStorage.getItem('tempNama') || 'Pelanggan';
+      const tempNama = sessionStorage.getItem('tempNama') || user.email?.split('@')[0] || 'Pelanggan';
+      const tempWA   = sessionStorage.getItem('tempWA')   || '';
       await set(ref(db, 'pelanggan/' + user.uid), {
-        nama: tempNama, email: user.email, uid: user.uid, createdAt: serverTimestamp()
+        nama: tempNama, email: user.email, noWA: tempWA, uid: user.uid, createdAt: serverTimestamp()
       });
       sessionStorage.removeItem('tempNama');
+      sessionStorage.removeItem('tempWA');
     }
     document.getElementById('userPill').textContent = '👤 ' + (snap.val()?.nama || 'Saya');
     loadRestos();
@@ -741,6 +747,7 @@ window.loginUser = async function() {
 window.daftarUser = async function() {
   const nama  = document.getElementById('daftarNama').value.trim();
   const email = document.getElementById('daftarEmail').value.trim();
+  const wa    = document.getElementById('daftarWA')?.value.trim() || '';
   const pass  = document.getElementById('daftarPass').value;
   const pass2 = document.getElementById('daftarPass2').value;
   if (!nama || !email || !pass) { showErr('Semua field wajib diisi'); return; }
@@ -751,8 +758,9 @@ window.daftarUser = async function() {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     tempUserCredential = cred;
-    // Simpan nama sementara
+    // Simpan nama & WA sementara
     sessionStorage.setItem('tempNama', nama);
+    sessionStorage.setItem('tempWA', wa);
     // Kirim email verifikasi
     await sendEmailVerification(cred.user);
     document.getElementById('verifyEmailDisplay').textContent = email;
@@ -902,14 +910,16 @@ if (!pelangganData?.nama || pelangganData.nama === 'Pelanggan') {
 }
 
     // Buat data order lengkap
+    const pelangganWA = pelangganData?.noWA || '';
     const dataFinal = {
       ...orderData,
       pelangganId:   currentUser.uid,
       pelanggan:     pelangganNama,
       pelangganEmail:currentUser.email || '',
-      waktu:         Date.now(),           // pakai Date.now() bukan serverTimestamp() agar bisa dibaca langsung
+      pelangganWA:   pelangganWA,
+      waktu:         Date.now(),
       waktuStr:      nowStr(),
-      createdAt:     serverTimestamp()     // serverTimestamp hanya untuk sorting, bukan display
+      createdAt:     serverTimestamp()
     };
 
     console.log('📦 Data order dikirim:', dataFinal);
@@ -935,16 +945,19 @@ window.submitOrderMakanan = async function() {
   const catatan = document.getElementById('foodCatatan').value.trim();
   if (!menu || !alamat) { toast('⚠️ Menu dan alamat wajib diisi!'); return; }
   const id = await submitOrder({ tipe:'makanan', resto:selectedResto, menu, alamat, catatan, status:'menunggu_konfirmasi' }, 'btnOrderFood', '🛒 Pesan Sekarang');
-  if (id) { toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...');
-  toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...');
-bunyiSukses(); // ← tambah ini
-  document.getElementById('foodMenu').value=''; document.getElementById('foodAlamat').value=''; }
+  if (id) {
+    toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...');
+    bunyiSukses();
+    document.getElementById('foodMenu').value='';
+    document.getElementById('foodAlamat').value='';
+  }
 };
 
 window.submitOrderPenumpang = async function() {
   if (!pts.from || !pts.to) { toast('⚠️ Lengkapi lokasi jemput & tujuan!'); return; }
   const d = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
-  const price = Math.max(8000, Math.round(d * vehicleRate / 500) * 500);
+  const minFareOrder = vehicleMinFare[vehicleName] || 8000;
+  const price = Math.max(minFareOrder, Math.round(d * vehicleRate / 500) * 500);
   
   const orderData = {
     tipe: 'penumpang',
@@ -1297,7 +1310,8 @@ let activeSheet = null;
 const sheetMap = { food:'sheetFood', pass:'sheetPass', cargo:'sheetCargo', other:'sheetOther', orderFood:'sheetOrderFood', formLain:'sheetFormLain' };
 let selectedResto = '', selectedLayananLain = '';
 const pts = { from: null, to: null };
-let vehicleRate = 2000, vehicleName = 'Motor';
+let vehicleRate = 3000, vehicleName = 'Motor';
+const vehicleMinFare = { Motor: 8000, Mobil: 15000, 'Sepeda Listrik': 5000, 'Mobil XL': 20000 };
 
 window.openSheet = function(type) {
   if (activeSheet) activeSheet.classList.remove('on');
@@ -1307,6 +1321,26 @@ window.openSheet = function(type) {
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
   activeSheet = el;
   document.body.style.overflow = 'hidden';
+
+  // Auto GPS untuk titik jemput saat buka sheet penumpang/barang
+  if ((type === 'pass' || type === 'cargo') && !pts.from) {
+    setTimeout(() => {
+      if (navigator.geolocation) {
+        toast('📡 Mengambil lokasi kamu...');
+        navigator.geolocation.getCurrentPosition(pos => {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          reverseGeo(lat, lng, addr => {
+            pts.from = { lat, lng, addr };
+            const inputId = type === 'pass' ? 'inFrom' : 'cargoFrom';
+            const el2 = document.getElementById(inputId);
+            if (el2) el2.value = addr;
+            calcFare();
+            toast('📍 Lokasi jemput: ' + addr.split(',')[0]);
+          });
+        }, () => {}, { enableHighAccuracy: true, timeout: 8000 });
+      }
+    }, 500);
+  }
 };
 
 window.closeSheet = function() {
@@ -1370,11 +1404,14 @@ function calcFare() {
   const fb = document.getElementById('fareBox');
   if (!pts.from || !pts.to) { fb.style.display='none'; return; }
   const d = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
-  const mins = Math.max(5, Math.round(d*3));
-  const price = Math.max(8000, Math.round(d*vehicleRate/500)*500);
-  document.getElementById('fDist').textContent = d.toFixed(1)+' km';
-  document.getElementById('fTime').textContent = mins+' menit';
-  document.getElementById('fPrice').textContent = 'Rp '+price.toLocaleString('id-ID');
+  const mins  = Math.max(5, Math.round(d * 3));
+  const minFare = vehicleMinFare[vehicleName] || 8000;
+  // Hitung tarif: jarak × rate per km, dibulatkan ke 500 terdekat, min sesuai kendaraan
+  const rawPrice = Math.round(d * vehicleRate / 500) * 500;
+  const price = Math.max(minFare, rawPrice);
+  document.getElementById('fDist').textContent  = d.toFixed(1) + ' km';
+  document.getElementById('fTime').textContent  = mins + ' menit';
+  document.getElementById('fPrice').textContent = 'Rp ' + price.toLocaleString('id-ID');
   fb.style.display = 'block';
 }
 

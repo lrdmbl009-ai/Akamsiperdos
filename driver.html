@@ -338,6 +338,7 @@ main{padding:14px 14px 100px;}
     <div class="ao-actions">
       <button class="ao-btn nav" onclick="bukaNavigasi()">🗺️ Navigasi</button>
       <button class="ao-btn chat" onclick="openChatWithPelanggan()">💬 Chat</button>
+      <button class="ao-btn" onclick="hubungiPelangganWA()" style="background:rgba(37,211,102,.15);color:#25D366;border:1px solid rgba(37,211,102,.3)">📱 WhatsApp</button>
       <button class="ao-btn pickup" id="btnPickup" onclick="updateStatusOrder('dijemput')">📍 Sudah Jemput</button>
       <button class="ao-btn cancel" onclick="batalOrder()">❌ Batalkan</button>
       <button class="ao-btn chat" onclick="openChatWithAdmin()" style="background:rgba(255,195,0,.15);color:#FFC300;border:1px solid rgba(255,195,0,.3)">⚙️ Chat Admin</button>
@@ -986,9 +987,29 @@ window.ambilOrderById = async function(id) {
   const snap = await get(orderRef);
   const order = snap.val();
   if (!order) { toast('❌ Order tidak ditemukan'); return; }
-  if (order.driverId) { toast('❌ Order sudah diambil driver lain!'); return; }
+  // Cek apakah sudah diambil driver LAIN (bukan diri sendiri)
+  if (order.driverId && order.driverId !== driverData.uid) {
+    toast('❌ Order sudah diambil driver lain!');
+    return;
+  }
+  // Jika sudah diambil sendiri sebelumnya, lanjut tampilkan
+  if (order.driverId === driverData.uid) {
+    activeOrderId   = id;
+    activeOrderData = order;
+    localStorage.setItem('activeOrderId_' + driverData.uid, id);
+    if (listeners.orders) { listeners.orders(); delete listeners.orders; }
+    showActiveOrder(id);
+    updateActiveOrder(order, id);
+    listenActiveOrder(id);
+    return;
+  }
 
-  // Simpan data order asli SEBELUM update (supaya data lengkap tersedia)
+  // Stop listener orders dulu agar tidak bentrok
+  if (listeners.orders) { listeners.orders(); delete listeners.orders; }
+  document.getElementById('orderList').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Order Diambil!</div><div class="empty-sub">Menuju lokasi penjemputan...</div></div>';
+
+  // Simpan data order asli SEBELUM update
   const orderAsli = { ...order };
 
   // Update Firebase dengan data driver
@@ -1329,6 +1350,24 @@ window.batalOrder = async function() {
   document.getElementById('activeOrderDiv').classList.remove('show');
   if (listeners.activeOrder) { listeners.activeOrder(); delete listeners.activeOrder; }
   toast('❌ Order dibatalkan');
+};
+
+// ── HUBUNGI PELANGGAN VIA WHATSAPP ──
+window.hubungiPelangganWA = function() {
+  const wa = activeOrderData?.pelangganWA || activeOrderData?.pelangganNoWA || '';
+  if (!wa || wa === '') {
+    // Tidak ada WA pelanggan - buka chat saja
+    toast('📱 Nomor WA pelanggan tidak tersedia, gunakan Chat');
+    openChatWithPelanggan();
+    return;
+  }
+  let noWA = wa.replace(/[^0-9+]/g, '');
+  if (noWA.startsWith('08')) noWA = '+62' + noWA.slice(1);
+  const orderId = activeOrderId ? '#' + activeOrderId.slice(-6).toUpperCase() : '';
+  const pesan = encodeURIComponent(
+    'Halo Kak, saya driver AkamsiPerdos ' + orderId + '. Saya sedang menuju lokasi penjemputan kamu. 🏍️'
+  );
+  window.open('https://wa.me/' + noWA.replace('+','') + '?text=' + pesan, '_blank');
 };
 
 window.bukaNavigasi = function() {
