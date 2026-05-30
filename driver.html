@@ -170,6 +170,34 @@ main{padding:14px 14px 90px;}
 @keyframes toastIn{from{opacity:0;top:76px}to{opacity:1;top:66px}}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── CHAT BADGE ── */
+.chat-badge-dot{position:absolute;top:2px;right:14px;width:16px;height:16px;border-radius:50%;background:var(--primary);color:#fff;font-size:.58rem;font-weight:900;align-items:center;justify-content:center;border:2px solid var(--dark2);}
+
+/* ── NOTIF POPUP WARNA ── */
+.notif-popup{background:linear-gradient(135deg,var(--dark2),#0a2744) !important;}
+.notif-title{animation:notifGlow 1.5s ease infinite;}
+@keyframes notifGlow{0%,100%{color:var(--accent)}50%{color:#fff}}
+
+/* ── PESAN MASUK WARNA ── */
+.chat-msg.them{background:linear-gradient(135deg,#0f3460,#1a1a4e);border:1px solid rgba(78,205,196,.2);}
+.chat-msg.new-msg{animation:newMsgPop .4s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes newMsgPop{from{opacity:0;transform:scale(.8) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* ── ORDER CARD WARNA BERDASARKAN TIPE ── */
+.order-card.tipe-makanan{border-color:rgba(255,77,77,.3);background:linear-gradient(135deg,var(--dark2),rgba(255,77,77,.05));}
+.order-card.tipe-penumpang{border-color:rgba(78,205,196,.3);background:linear-gradient(135deg,var(--dark2),rgba(78,205,196,.05));}
+.order-card.tipe-barang{border-color:rgba(167,139,250,.3);background:linear-gradient(135deg,var(--dark2),rgba(167,139,250,.05));}
+.order-card.tipe-lainnya{border-color:rgba(0,200,151,.3);background:linear-gradient(135deg,var(--dark2),rgba(0,200,151,.05));}
+
+/* ── ACTIVE ORDER WARNA STATUS ── */
+.ao-status-bar{padding:8px 12px;border-radius:10px;font-size:.78rem;font-weight:700;text-align:center;margin-bottom:10px;}
+.ao-status-bar.menunggu{background:rgba(255,195,0,.15);color:var(--secondary);border:1px solid rgba(255,195,0,.3);}
+.ao-status-bar.jalan{background:rgba(78,205,196,.15);color:var(--passenger);border:1px solid rgba(78,205,196,.3);}
+.ao-status-bar.selesai{background:rgba(0,200,151,.15);color:var(--accent);border:1px solid rgba(0,200,151,.3);}
+
+/* ── MAP TONDO OVERLAY ── */
+.map-area-label{position:absolute;top:8px;right:8px;z-index:20;background:rgba(78,205,196,.15);border:1px solid rgba(78,205,196,.3);border-radius:8px;padding:4px 10px;font-size:.65rem;font-weight:700;color:var(--passenger);backdrop-filter:blur(4px);}
 </style>
 </head>
 <body>
@@ -285,6 +313,7 @@ main{padding:14px 14px 90px;}
     <div class="ao-title">🟢 Order Aktif</div>
     <div style="position:relative">
       <div id="driverMap"></div>
+      <div class="map-area-label">📍 Area Tondo</div>
       <div class="map-eta-bar" id="mapEtaBar" style="display:none">
         <div class="eta-dot"></div>
         <div class="eta-info">
@@ -322,7 +351,12 @@ main{padding:14px 14px 90px;}
 <div class="bnav">
   <div class="bni on"><div class="bni-icon">🏠</div><div class="bni-label">Beranda</div><div class="bni-dot"></div></div>
   <div class="bni"><div class="bni-icon">📋</div><div class="bni-label">Riwayat</div><div class="bni-dot"></div></div>
-  <div class="bni"><div class="bni-icon">💬</div><div class="bni-label">Chat</div><div class="bni-dot"></div></div>
+  <div class="bni" onclick="openChatWithPelanggan()" style="position:relative">
+    <div class="bni-icon">💬</div>
+    <div class="bni-label">Chat</div>
+    <div class="bni-dot"></div>
+    <div id="chatBadge" style="display:none;position:absolute;top:2px;right:14px;width:16px;height:16px;border-radius:50%;background:var(--primary);color:#fff;font-size:.58rem;font-weight:900;display:none;align-items:center;justify-content:center;border:2px solid var(--dark2)">!</div>
+  </div>
   <div class="bni"><div class="bni-icon">👤</div><div class="bni-label">Profil</div><div class="bni-dot"></div></div>
 </div>
 
@@ -691,7 +725,7 @@ function renderOrders(orders) {
     }
     rows+=jarakInfo;
     rows+=`<div class="order-row"><div class="order-icon">⏰</div><div class="order-detail"><div class="order-detail-lbl">Waktu</div><div class="order-detail-val">${o.waktuStr||'–'}</div></div></div>`;
-    return `<div class="order-card"><div class="order-header"><div class="order-id">#${id.slice(-6).toUpperCase()}</div><div class="order-type-badge ${typeClass}">${typeLabel}</div></div>${rows}<div class="order-footer"><button class="btn-ambil" data-orderid="${id}">✅ Ambil Order</button><button class="btn-skip" data-skip="true">Skip</button></div></div>`;
+    return `<div class="order-card tipe-${o.tipe||'lainnya'}"><div class="order-header"><div class="order-id">#${id.slice(-6).toUpperCase()}</div><div class="order-type-badge ${typeClass}">${typeLabel}</div></div>${rows}<div class="order-footer"><button class="btn-ambil" data-orderid="${id}">✅ Ambil Order</button><button class="btn-skip" data-skip="true">Skip</button></div></div>`;
   }).join('');
 
   list.querySelectorAll('.btn-ambil').forEach(btn=>btn.addEventListener('click',()=>ambilOrderById(btn.dataset.orderid)));
@@ -797,17 +831,36 @@ function renderOrderData(data) {
   document.getElementById('aoTarif').textContent  = data.tarif||'COD';
   document.getElementById('aoWaktu').textContent  = data.waktuStr||'–';
 
-  // Update map jika ada koordinat
+  // Update map dengan routing jalan
   if (driverMap) {
     if (pickupMarker) { driverMap.removeLayer(pickupMarker); pickupMarker=null; }
     if (pelangganMarker) { driverMap.removeLayer(pelangganMarker); pelangganMarker=null; }
     if (routeLine) { driverMap.removeLayer(routeLine); routeLine=null; }
+
     if (data.dariLat && data.status==='driver_ditemukan') {
-      pickupMarker=L.marker([data.dariLat,data.dariLng],{icon:createDestIcon('pickup')}).addTo(driverMap).bindPopup('📍 Titik Jemput');
-      if (currentDriverPos) { drawRoute(currentDriverPos,[data.dariLat,data.dariLng]); driverMap.fitBounds([currentDriverPos,[data.dariLat,data.dariLng]],{padding:[40,40]}); }
+      // Menuju titik JEMPUT → routing ke pickup
+      pickupMarker = L.marker([data.dariLat,data.dariLng], {
+        icon: createDestIcon('pickup'), zIndexOffset: 900
+      }).addTo(driverMap).bindPopup('📍 Titik Jemput: '+(data.dari||'–'));
+
+      // Animasi ping di titik jemput
+      addPingMarker(data.dariLat, data.dariLng, '#00C897');
+
+      if (currentDriverPos) {
+        routeToPickup(currentDriverPos, [data.dariLat, data.dariLng]);
+      }
     } else if (data.keLat) {
-      pelangganMarker=L.marker([data.keLat,data.keLng],{icon:createDestIcon('dest')}).addTo(driverMap).bindPopup('🏁 Tujuan');
-      if (currentDriverPos) { drawRoute(currentDriverPos,[data.keLat,data.keLng]); driverMap.fitBounds([currentDriverPos,[data.keLat,data.keLng]],{padding:[40,40]}); }
+      // Menuju TUJUAN → routing ke tujuan
+      pelangganMarker = L.marker([data.keLat,data.keLng], {
+        icon: createDestIcon('dest'), zIndexOffset: 900
+      }).addTo(driverMap).bindPopup('🏁 Tujuan: '+(data.ke||'–'));
+
+      // Animasi ping di tujuan
+      addPingMarker(data.keLat, data.keLng, '#FF4D4D');
+
+      if (currentDriverPos) {
+        drawRoute(currentDriverPos, [data.keLat, data.keLng]);
+      }
     }
   }
 }
@@ -819,8 +872,24 @@ function showActiveOrder(id) {
   if (!driverMap) {
     setTimeout(()=>{
       const mapEl = document.getElementById('driverMap');
-      driverMap = L.map(mapEl,{zoomControl:false,attributionControl:false}).setView([-0.8365,119.8927],15);
+      // Batas area Tondo
+      const TONDO_BOUNDS = L.latLngBounds(
+        L.latLng(-0.8700, 119.8700), // SW
+        L.latLng(-0.8050, 119.9300)  // NE
+      );
+      driverMap = L.map(mapEl,{
+        zoomControl:false,
+        attributionControl:false,
+        maxBounds: TONDO_BOUNDS,
+        maxBoundsViscosity: 0.9,
+        minZoom: 13
+      }).setView([-0.8365,119.8927],15);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,opacity:.88}).addTo(driverMap);
+      // Garis batas area Tondo
+      L.rectangle(TONDO_BOUNDS, {
+        color:'#4ECDC4', weight:2, fill:false,
+        dashArray:'8,6', opacity:.6
+      }).addTo(driverMap);
       driverSelfMarker = L.marker([-0.8365,119.8927],{icon:createDriverIcon(0),zIndexOffset:1000}).addTo(driverMap);
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(pos=>{
@@ -844,12 +913,17 @@ window.updateStatusOrder = async function(status) {
   else if (status==='dijemput') {
     document.getElementById('btnPickup').style.display='none';
     toast('✅ Sudah jemput! Menuju tujuan...');
-    // Pindah rute ke tujuan
-    if (activeOrderData?.keLat && currentDriverPos) {
-      if (pickupMarker&&driverMap) { driverMap.removeLayer(pickupMarker); pickupMarker=null; }
-      if (!pelangganMarker&&driverMap) {
-        pelangganMarker=L.marker([activeOrderData.keLat,activeOrderData.keLng],{icon:createDestIcon('dest')}).addTo(driverMap);
-        drawRoute(currentDriverPos,[activeOrderData.keLat,activeOrderData.keLng]);
+    // Hapus marker pickup, tampilkan rute ke tujuan
+    if (driverMap) {
+      if (pickupMarker) { driverMap.removeLayer(pickupMarker); pickupMarker=null; }
+      if (routeLine) { driverMap.removeLayer(routeLine); routeLine=null; }
+      if (activeOrderData?.keLat && currentDriverPos) {
+        pelangganMarker = L.marker([activeOrderData.keLat,activeOrderData.keLng], {
+          icon: createDestIcon('dest'), zIndexOffset:900
+        }).addTo(driverMap).bindPopup('🏁 Tujuan: '+(activeOrderData.ke||'–'));
+        addPingMarker(activeOrderData.keLat, activeOrderData.keLng, '#FF4D4D');
+        // Routing jalan ke tujuan
+        drawRoute(currentDriverPos, [activeOrderData.keLat, activeOrderData.keLng]);
       }
     }
   }
@@ -890,24 +964,50 @@ window.bukaNavigasi = function() {
 };
 
 // ── ETA BAR ──
-function updateEtaBar(lat,lng) {
+// Throttle routing update (max 1x per 15 detik agar tidak spam API)
+let lastRouteUpdate = 0;
+
+function updateEtaBar(lat, lng) {
   if (!activeOrderData) return;
-  let tLat,tLng,label;
-  if (activeOrderData.status==='driver_ditemukan'&&activeOrderData.dariLat) {
+  let tLat, tLng, label;
+  if (activeOrderData.status==='driver_ditemukan' && activeOrderData.dariLat) {
     tLat=activeOrderData.dariLat; tLng=activeOrderData.dariLng; label='Menuju titik jemput';
   } else if (activeOrderData.keLat) {
     tLat=activeOrderData.keLat; tLng=activeOrderData.keLng; label='Menuju tujuan';
   }
   if (!tLat) return;
-  const d=haversineDriver(lat,lng,tLat,tLng);
-  const m=Math.max(1,Math.round(d*3));
-  document.getElementById('etaText').textContent=m+' menit lagi';
-  document.getElementById('etaSub').textContent=label;
-  document.getElementById('etaDist').textContent=d.toFixed(1)+' km';
-  document.getElementById('mapEtaBar').style.display='flex';
-  // Update rute
-  if (routeLine&&driverMap) { driverMap.removeLayer(routeLine); routeLine=null; }
-  drawRoute([lat,lng],[tLat,tLng]);
+
+  // Hitung jarak cepat (haversine)
+  const d = haversineDriver(lat,lng,tLat,tLng);
+  const m = Math.max(1, Math.round(d*3));
+  document.getElementById('etaText').textContent = m + ' menit lagi';
+  document.getElementById('etaSub').textContent  = label;
+  document.getElementById('etaDist').textContent = d.toFixed(1) + ' km';
+  document.getElementById('mapEtaBar').style.display = 'flex';
+
+  // Update routing jalan setiap 15 detik (bukan setiap GPS update)
+  const now = Date.now();
+  if (now - lastRouteUpdate > 15000) {
+    lastRouteUpdate = now;
+    if (activeOrderData.status==='driver_ditemukan' && activeOrderData.dariLat) {
+      routeToPickup([lat,lng], [tLat,tLng]);
+    } else {
+      drawRoute([lat,lng], [tLat,tLng]);
+    }
+  }
+}
+
+// ── ANIMASI PING DI TITIK TUJUAN ──
+function addPingMarker(lat, lng, color) {
+  const html = `<div style="position:relative;width:30px;height:30px">
+    <div style="position:absolute;inset:-8px;border-radius:50%;border:3px solid ${color};opacity:.6;animation:markerPulse 1.8s ease-out infinite"></div>
+    <div style="position:absolute;inset:-4px;border-radius:50%;border:2px solid ${color};opacity:.4;animation:markerPulse 1.8s ease-out infinite .4s"></div>
+    <div style="width:30px;height:30px;border-radius:50%;background:${color};opacity:.25"></div>
+  </div>`;
+  L.marker([lat,lng], {
+    icon: L.divIcon({html, className:'', iconSize:[30,30], iconAnchor:[15,15]}),
+    zIndexOffset: 800, interactive: false
+  }).addTo(driverMap);
 }
 
 // ── MAP HELPERS ──
@@ -953,9 +1053,106 @@ function haversineDriver(a,b,c,d) {
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-function drawRoute(from,to) {
-  if (routeLine&&driverMap) { driverMap.removeLayer(routeLine); }
-  routeLine=L.polyline([from,to],{color:'#4ECDC4',weight:4,opacity:.8,dashArray:'10,8',lineJoin:'round'}).addTo(driverMap);
+// ── ROUTING MENGIKUTI JALAN (OSRM) ──
+async function drawRoute(from, to) {
+  if (!driverMap) return;
+  // Hapus rute lama
+  if (routeLine) { driverMap.removeLayer(routeLine); routeLine=null; }
+
+  try {
+    // Pakai OSRM public API (gratis, ikuti jalan)
+    const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.routes && data.routes[0]) {
+      const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      const dist   = (data.routes[0].distance / 1000).toFixed(1);
+      const dur    = Math.ceil(data.routes[0].duration / 60);
+
+      // Garis utama mengikuti jalan
+      routeLine = L.polyline(coords, {
+        color: '#4ECDC4',
+        weight: 5,
+        opacity: 0.9,
+        lineJoin: 'round',
+        lineCap: 'round'
+      }).addTo(driverMap);
+
+      // Garis outline putih di bawah (efek shadow jalan)
+      L.polyline(coords, {
+        color: 'rgba(255,255,255,0.3)',
+        weight: 8,
+        opacity: 0.5,
+        lineJoin: 'round'
+      }).addTo(driverMap).bringToBack();
+
+      // Update ETA bar
+      document.getElementById('etaText').textContent = dur + ' menit lagi';
+      document.getElementById('etaDist').textContent = dist + ' km';
+      document.getElementById('mapEtaBar').style.display = 'flex';
+
+      // Fit bounds dengan padding
+      driverMap.fitBounds(routeLine.getBounds(), { padding: [50, 50], maxZoom: 16 });
+    } else {
+      // Fallback garis lurus jika OSRM gagal
+      routeLine = L.polyline([from, to], {
+        color:'#4ECDC4', weight:4, opacity:.7, dashArray:'10,8'
+      }).addTo(driverMap);
+    }
+  } catch(e) {
+    // Fallback jika tidak ada internet
+    routeLine = L.polyline([from, to], {
+      color:'#4ECDC4', weight:4, opacity:.7, dashArray:'10,8'
+    }).addTo(driverMap);
+    console.warn('Routing fallback:', e);
+  }
+}
+
+// ── ROUTING ANIMASI DRIVER → PICKUP ──
+async function routeToPickup(driverPos, pickupPos) {
+  if (!driverMap) return;
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${driverPos[1]},${driverPos[0]};${pickupPos[1]},${pickupPos[0]}?overview=full&geometries=geojson&steps=true`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.routes?.[0]) return;
+
+    const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    const dist   = (data.routes[0].distance / 1000).toFixed(1);
+    const dur    = Math.ceil(data.routes[0].duration / 60);
+
+    if (routeLine) driverMap.removeLayer(routeLine);
+
+    // Outline shadow
+    L.polyline(coords, {color:'rgba(255,255,255,0.25)',weight:9,lineJoin:'round'}).addTo(driverMap).bringToBack();
+    // Garis biru teal
+    routeLine = L.polyline(coords, {
+      color:'#4ECDC4', weight:5, opacity:.92, lineJoin:'round', lineCap:'round'
+    }).addTo(driverMap);
+
+    // Arrow di tengah rute
+    if (coords.length > 2) {
+      const mid = coords[Math.floor(coords.length/2)];
+      const prev = coords[Math.floor(coords.length/2)-1];
+      const angle = Math.atan2(mid[1]-prev[1], mid[0]-prev[0]) * 180 / Math.PI;
+      L.marker(mid, {
+        icon: L.divIcon({
+          html:`<div style="transform:rotate(${angle}deg);color:#4ECDC4;font-size:1.1rem;text-shadow:0 0 6px rgba(0,0,0,.5)">▶</div>`,
+          className:'', iconSize:[20,20], iconAnchor:[10,10]
+        }), zIndexOffset: 500
+      }).addTo(driverMap);
+    }
+
+    document.getElementById('etaText').textContent = dur + ' menit ke jemput';
+    document.getElementById('etaDist').textContent = dist + ' km';
+    document.getElementById('etaSub').textContent  = 'Menuju titik penjemputan';
+    document.getElementById('mapEtaBar').style.display = 'flex';
+
+    driverMap.fitBounds(routeLine.getBounds(), { padding:[50,50], maxZoom:16 });
+  } catch(e) {
+    drawRoute(driverPos, pickupPos);
+  }
 }
 
 // ── CHAT ──
@@ -974,10 +1171,21 @@ function openChatPanel(roomId,name,sub) {
   document.getElementById('chatName').textContent=name;
   document.getElementById('chatOverlay').classList.add('on');
   document.getElementById('chatPanel').classList.add('on');
+  // Sembunyikan badge saat chat dibuka
+  const badge=document.getElementById('chatBadge');
+  if(badge)badge.style.display='none';
   if (chatListenerRef) off(chatListenerRef);
   set(ref(db,'chats/'+roomId+'/label'),name).catch(()=>{});
   chatListenerRef=ref(db,'chats/'+roomId+'/messages');
-  onValue(chatListenerRef,snap=>{ renderChatMessages(snap.val()||{}); });
+  let firstLoad=true;
+  onValue(chatListenerRef,snap=>{
+    const msgs=snap.val()||{};
+    const prevCount=document.getElementById('chatMessages').children.length;
+    renderChatMessages(msgs);
+    // Bunyi hanya saat ada pesan baru (bukan load pertama)
+    if(!firstLoad && Object.keys(msgs).length > prevCount) bunyiChat();
+    firstLoad=false;
+  });
 }
 
 function renderChatMessages(msgs) {
@@ -986,7 +1194,8 @@ function renderChatMessages(msgs) {
   c.innerHTML=entries.map(([,m])=>{
     const isMe=m.sender==='driver';
     if (m.type==='location') return `<div class="chat-msg ${isMe?'me':'them'}"><div class="chat-loc-msg" onclick="window.open('https://maps.google.com?q=${m.lat},${m.lng}','_blank')">📍 Lokasi dikirim — Tap buka maps</div><div class="chat-msg-time">${m.timeStr||''}</div></div>`;
-    return `<div class="chat-msg ${isMe?'me':'them'}">${m.text}<div class="chat-msg-time">${m.timeStr||''}</div></div>`;
+    const isNew = (Date.now() - (m.ts||0)) < 5000;
+    return `<div class="chat-msg ${isMe?'me':'them'}${isNew&&!isMe?' new-msg':''}">${m.text}<div class="chat-msg-time">${m.timeStr||''}</div></div>`;
   }).join('');
   c.scrollTop=c.scrollHeight;
 }
@@ -1027,13 +1236,16 @@ window.closeChat = function() {
 function bunyiOrder() {
   try {
     const ctx=new AudioContext();
-    [0,150,300].forEach(delay=>{
+    // 3 nada ding-ding-ding keras untuk order baru
+    [[0,880,.5],[150,1046,.5],[300,880,.5],[450,1046,.5],[600,1318,.6]].forEach(([delay,freq,vol])=>{
       const osc=ctx.createOscillator(),gain=ctx.createGain();
       osc.connect(gain);gain.connect(ctx.destination);
-      osc.frequency.value=880;
-      gain.gain.setValueAtTime(.4,ctx.currentTime+delay/1000);
-      gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay/1000+.3);
-      osc.start(ctx.currentTime+delay/1000);osc.stop(ctx.currentTime+delay/1000+.3);
+      osc.type='sine';
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(vol,ctx.currentTime+delay/1000);
+      gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay/1000+.35);
+      osc.start(ctx.currentTime+delay/1000);
+      osc.stop(ctx.currentTime+delay/1000+.35);
     });
   } catch(e){}
 }
