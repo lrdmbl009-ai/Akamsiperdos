@@ -312,6 +312,40 @@ main{padding:14px 14px 90px;}
   <div class="active-order" id="activeOrderDiv">
     <div class="ao-title">🟢 Order Aktif</div>
     <div style="position:relative">
+    <button id="btnMapFullscreen"
+style="
+position:absolute;
+bottom:15px;
+left:15px;
+z-index:500;
+background:#FFC300;
+color:#000;
+padding:8px 10px;
+border:none;
+border-radius:10px;
+font-size:16px;
+font-weight:700;
+cursor:pointer;
+"
+onclick="
+const map=document.getElementById('driverMap');
+
+if(map.style.height=='400px'){
+  map.style.height='200px';
+  this.innerHTML='🗺️+';
+}else{
+  map.style.height='400px';
+  this.innerHTML='🗺️−';
+}
+
+setTimeout(function(){
+  if(driverMap){
+    driverMap.invalidateSize(true);
+  }
+},300);
+">
+🗺️+
+</button>
       <div id="driverMap"></div>
       <div class="map-area-label">📍 Area Tondo</div>
       <div class="map-eta-bar" id="mapEtaBar" style="display:none">
@@ -904,6 +938,7 @@ function showActiveOrder(id) {
     },150);
   } else { driverMap.invalidateSize(); }
 }
+
 
 // ── ORDER ACTIONS ──
 window.updateStatusOrder = async function(status) {
