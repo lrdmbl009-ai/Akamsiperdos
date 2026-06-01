@@ -738,7 +738,10 @@ window.submitOrderBarang = async function() {
   const berat = cargoBerat;
   
   if(!dari || !ke){ toast('⚠️ Lengkapi lokasi pengambilan dan tujuan!'); return; }
-  if(!pts.from || !pts.to){ toast('⚠️ Pilih lokasi dari peta terlebih dahulu!'); return; }
+  // if(!pts.from || !pts.to){
+//    toast('⚠️ Pilih lokasi dari peta terlebih dahulu!');
+//    return;
+// }
   
   const jarak = cargoJarak;
   
@@ -765,10 +768,12 @@ window.submitOrderBarang = async function() {
     tipe: 'barang',
     dari: dari,
     ke: ke,
-    dariLat: pts.from.lat,
-    dariLng: pts.from.lng,
-    keLat: pts.to.lat,
-    keLng: pts.to.lng,
+
+    dariLat: pts.from ? pts.from.lat : null,
+    dariLng: pts.from ? pts.from.lng : null,
+    keLat: pts.to ? pts.to.lat : null,
+    keLng: pts.to ? pts.to.lng : null,
+
     jarak: jarak.toFixed(1) + ' km',
     namaBarang: namaBarang,
     deskripsiBarang: deskripsi,
@@ -780,7 +785,7 @@ window.submitOrderBarang = async function() {
     totalPembayaran: total,
     catatan: catatanPelanggan,
     status: 'menunggu_driver'
-  }, 'btnOrderCargo', '📦 Kirim Sekarang');
+}, 'btnOrderCargo', '📦 Kirim Sekarang');
   
   if(id) { bunyiSukses(); toast('✅ Mencari driver terdekat...'); }
 };
