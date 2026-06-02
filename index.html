@@ -575,8 +575,36 @@ let vehicleCode = 'motor';
 
 function updateChatBadge(roomId, isUnread) { if (isUnread) unreadChats[roomId] = true; else delete unreadChats[roomId]; const total = Object.keys(unreadChats).length; const badge = document.getElementById('chatBadge'); if (badge) badge.style.display = total > 0 ? 'flex' : 'none'; }
 
+// --- ROLE VALIDATION ---
+async function checkUserRoleAndRedirect(user, expectedRole) {
+  if (!user) return false;
+  const snap = await get(ref(db, 'users/'+user.uid));
+  const roleData = snap.val();
+  const role = roleData?.role;
+  if (role !== expectedRole) {
+    if (role === 'driver') window.location.href = 'driver.html';
+    else if (role === 'resto') window.location.href = 'resto.html';
+    else if (role === 'admin') window.location.href = 'admin.html';
+    else window.location.href = 'index.html';
+    return false;
+  }
+  return true;
+}
+
 onAuthStateChanged(auth, async user => {
   if (user && user.emailVerified) {
+    // Pastikan role customer di database
+    const userSnap = await get(ref(db, 'users/'+user.uid));
+    if (!userSnap.exists()) {
+      await set(ref(db, 'users/'+user.uid), { role: 'customer', email: user.email, createdAt: Date.now() });
+    } else if (userSnap.val().role !== 'customer') {
+      // Jika role bukan customer, redirect
+      if (userSnap.val().role === 'driver') window.location.href = 'driver.html';
+      else if (userSnap.val().role === 'resto') window.location.href = 'resto.html';
+      else if (userSnap.val().role === 'admin') window.location.href = 'admin.html';
+      else window.location.href = 'index.html';
+      return;
+    }
     currentUser = user;
     document.getElementById('loginScreen').style.display = 'none';
     const snap = await get(ref(db,'pelanggan/'+user.uid));
@@ -593,7 +621,10 @@ onAuthStateChanged(auth, async user => {
 function listenChatUnread() { const chatRef = ref(db, 'chats'); onValue(chatRef, snap => { const chats = snap.val() || {}; Object.entries(chats).forEach(([roomId, room]) => { const messages = room.messages || {}; const entries = Object.entries(messages).sort((a,b) => (b[1].ts||0)-(a[1].ts||0)); const lastMsg = entries[0]?.[1]; if (lastMsg && lastMsg.sender !== 'pelanggan' && !lastMsg.read && currentChatRoom !== roomId) { updateChatBadge(roomId, true); bunyiChat(); } }); }); }
 
 window.loginUser = async function() { const email = document.getElementById('loginEmail').value.trim(); const pass = document.getElementById('loginPass').value; if (!email||!pass) { showErr('Email dan password wajib diisi'); return; } const btn=document.getElementById('btnLogin'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { await signInWithEmailAndPassword(auth,email,pass); } catch(e) { const m={'auth/user-not-found':'Email belum terdaftar','auth/wrong-password':'Password salah','auth/invalid-credential':'Email atau password salah','auth/too-many-requests':'Terlalu banyak percobaan'}; showErr(m[e.code]||'Login gagal: '+e.message); } btn.innerHTML='🔑 Masuk'; btn.disabled=false; };
-window.daftarUser = async function() { const nama = document.getElementById('daftarNama').value.trim(); const email = document.getElementById('daftarEmail').value.trim(); const wa = document.getElementById('daftarWA').value.trim(); const pass = document.getElementById('daftarPass').value; const pass2 = document.getElementById('daftarPass2').value; if (!nama||!email||!pass) { showErr('Semua field wajib diisi'); return; } if (pass.length<6) { showErr('Password minimal 6 karakter'); return; } if (pass!==pass2) { showErr('Konfirmasi password tidak cocok'); return; } const btn=document.getElementById('btnDaftar'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { const cred = await createUserWithEmailAndPassword(auth,email,pass); sessionStorage.setItem('tempNama',nama); sessionStorage.setItem('tempWA',wa); await sendEmailVerification(cred.user); document.getElementById('verifyEmailDisplay').textContent=email; showStep('step3'); toast('📧 Email verifikasi terkirim!'); } catch(e) { const m={'auth/email-already-in-use':'Email sudah terdaftar','auth/invalid-email':'Format email tidak valid','auth/weak-password':'Password terlalu lemah'}; showErr(m[e.code]||'Daftar gagal: '+e.message); } btn.innerHTML='✅ Daftar Sekarang'; btn.disabled=false; };
+window.daftarUser = async function() { const nama = document.getElementById('daftarNama').value.trim(); const email = document.getElementById('daftarEmail').value.trim(); const wa = document.getElementById('daftarWA').value.trim(); const pass = document.getElementById('daftarPass').value; const pass2 = document.getElementById('daftarPass2').value; if (!nama||!email||!pass) { showErr('Semua field wajib diisi'); return; } if (pass.length<6) { showErr('Password minimal 6 karakter'); return; } if (pass!==pass2) { showErr('Konfirmasi password tidak cocok'); return; } const btn=document.getElementById('btnDaftar'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { const cred = await createUserWithEmailAndPassword(auth,email,pass); // Set role customer di users
+  await set(ref(db, 'users/'+cred.user.uid), { role: 'customer', email: email, nama: nama, noWA: wa, createdAt: Date.now() });
+  sessionStorage.setItem('tempNama',nama); sessionStorage.setItem('tempWA',wa);
+  await sendEmailVerification(cred.user); document.getElementById('verifyEmailDisplay').textContent=email; showStep('step3'); toast('📧 Email verifikasi terkirim!'); } catch(e) { const m={'auth/email-already-in-use':'Email sudah terdaftar','auth/invalid-email':'Format email tidak valid','auth/weak-password':'Password terlalu lemah'}; showErr(m[e.code]||'Daftar gagal: '+e.message); } btn.innerHTML='✅ Daftar Sekarang'; btn.disabled=false; };
 window.cekVerifikasi = async function() { const user=auth.currentUser; if(!user){showStep('step1');return;} await user.reload(); if (user.emailVerified) toast('✅ Terverifikasi!'); else showErr('Belum diverifikasi. Klik link di email dulu!'); };
 window.kirimUlangVerifikasi = async function() { const user=auth.currentUser; if(!user)return; try{await sendEmailVerification(user);toast('📧 Email dikirim ulang!');}catch(e){showErr('Gagal: '+e.message);} };
 window.lupaPassword = async function() { const email=document.getElementById('loginEmail').value.trim(); if(!email){showErr('Isi email dulu');return;} try{await sendPasswordResetEmail(auth,email);toast('📧 Link reset dikirim ke '+email);}catch(e){showErr('Gagal: '+e.message);} };
