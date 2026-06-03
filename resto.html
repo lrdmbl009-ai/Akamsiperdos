@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>AkamsiPerdos — Resto</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./assets/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
 <meta name="theme-color" content="#FF4D4D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="AkamsiPerdos Resto">
@@ -460,6 +462,48 @@ window.switchTab = function(tab, el) { document.querySelectorAll('.tab').forEach
 function bunyiChat(){ try{ const ctx=new AudioContext(); [[0,800,.22],[100,1000,.18]].forEach(([delay,freq,vol])=>{ const osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type='sine';osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime+delay/1000); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay/1000+.15); osc.start(ctx.currentTime+delay/1000);osc.stop(ctx.currentTime+delay/1000+.15); }); } catch(e){} }
 let _tt; window.toast = function(msg) { clearTimeout(_tt); document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); _tt=setTimeout(()=>{if(t.parentNode)t.remove();},2800); };
 </script>
-<script>if('serviceWorker'in navigator)navigator.serviceWorker.register('/service-worker.js').catch(()=>{});</script>
+<script>if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js').catch(()=>{});</script>
+
+<script>
+(() => {
+  let deferredPrompt = null;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '⬇️ Install App';
+  btn.style.cssText = [
+    'position:fixed',
+    'right:16px',
+    'bottom:76px',
+    'z-index:9998',
+    'display:none',
+    'padding:12px 16px',
+    'border:none',
+    'border-radius:999px',
+    'background:#00C897',
+    'color:#fff',
+    'font:700 13px/1.2 Poppins,system-ui,sans-serif',
+    'box-shadow:0 10px 24px rgba(0,0,0,.28)',
+    'cursor:pointer'
+  ].join(';');
+  btn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice?.outcome === 'accepted') btn.style.display = 'none';
+    deferredPrompt = null;
+  });
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btn.style.display = 'block';
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    btn.style.display = 'none';
+  });
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(btn));
+})();
+</script>
+
 </body>
 </html>
