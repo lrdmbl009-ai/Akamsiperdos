@@ -1117,5 +1117,44 @@ window.toast=function(msg){
 })();
 </script>
 
+<script>
+async function aktifkanNotifikasiAKAMSI() {
+  try {
+    if (!("Notification" in window)) {
+      toast("❌ Browser tidak mendukung notifikasi");
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      toast("✅ Notifikasi sudah aktif");
+      return;
+    }
+
+    const izin = await Notification.requestPermission();
+
+    if (izin === "granted") {
+      toast("🔔 Notifikasi berhasil diaktifkan");
+
+      new Notification("AKAMSI Driver", {
+        body: "Notifikasi order baru siap digunakan",
+        icon: "./driver-192.png"
+      });
+
+    } else {
+      toast("❌ Notifikasi ditolak");
+    }
+
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    aktifkanNotifikasiAKAMSI();
+  }, 2000);
+});
+</script>
+
 </body>
 </html>
