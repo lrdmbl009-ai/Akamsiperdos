@@ -292,6 +292,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, onValue, update, set, push, get, serverTimestamp, off, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+import {
+  getMessaging,
+  getToken,
+  onMessage
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyD93ILJjfqLAoLosdXn4Gm_0F20WFiYz2I",
   authDomain: "akamsiperdos-84b0b.firebaseapp.com",
@@ -305,6 +311,40 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+const messaging = getMessaging(app);
+async function aktifkanFCM() {
+  try {
+
+    const permission = await Notification.requestPermission();
+
+    if (permission !== "granted") {
+      console.log("Notifikasi ditolak");
+      return;
+    }
+
+    const token = await getToken(messaging, {
+      vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk"
+    });
+
+    console.log("FCM TOKEN:", token);
+
+    localStorage.setItem("driverFCMToken", token);
+
+  } catch (err) {
+    console.error("FCM ERROR:", err);
+  }
+}
+
+aktifkanFCM();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    .then(reg => {
+      console.log('FCM Service Worker aktif');
+    })
+    .catch(err => {
+      console.error('SW Error:', err);
+    });
+}
 
 let driverData = null, isOnline = false, activeOrderId = null, activeOrderData = null, locationWatcher = null, driverMap = null, driverSelfMarker = null, pelangganMarker = null, pickupMarker = null, routeLine = null, prevDriverPos = null, currentDriverPos = null, animFrame = null, pendingOrderId = null, currentChatRoom = null, chatListenerRef = null;
 const listeners = {};
