@@ -312,7 +312,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const messaging = getMessaging(app);
+
 async function aktifkanFCM() {
+
+  alert("FCM MULAI");
+
   try {
 
     const permission = await Notification.requestPermission();
@@ -327,6 +331,7 @@ async function aktifkanFCM() {
     });
 
     console.log("FCM TOKEN:", token);
+    alert("FCM TOKEN:\n" + token);
 
     localStorage.setItem("driverFCMToken", token);
 
@@ -335,15 +340,29 @@ async function aktifkanFCM() {
   }
 }
 
-aktifkanFCM();
+alert("SEBELUM SW");
+
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/firebase-messaging-sw.js')
-    .then(reg => {
-      console.log('FCM Service Worker aktif');
-    })
-    .catch(err => {
-      console.error('SW Error:', err);
-    });
+
+  alert("SW TERDETEKSI");
+
+  navigator.serviceWorker.register('./firebase-messaging-sw.js')
+  .then(async (reg) => {
+
+    alert("SW BERHASIL");
+
+    console.log('FCM Service Worker aktif');
+
+    await aktifkanFCM();
+
+  })
+  .catch(err => {
+
+    alert("SW GAGAL");
+
+    console.error('SW Error:', err);
+
+  });
 }
 
 let driverData = null, isOnline = false, activeOrderId = null, activeOrderData = null, locationWatcher = null, driverMap = null, driverSelfMarker = null, pelangganMarker = null, pickupMarker = null, routeLine = null, prevDriverPos = null, currentDriverPos = null, animFrame = null, pendingOrderId = null, currentChatRoom = null, chatListenerRef = null;
