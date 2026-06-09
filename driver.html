@@ -315,18 +315,16 @@ const messaging = getMessaging(app);
 
 async function aktifkanFCM() {
 
-  alert("FCM MULAI");
 
   try {
 
     const permission = await Notification.requestPermission();
-    alert("Permission: " + permission);
 
     if (permission !== "granted") {
       console.log("Notifikasi ditolak");
       return;
     }
-    alert("SEBELUM GETTOKEN");
+
 
     const registration = await navigator.serviceWorker.register(
   "/Akamsiperdos/firebase-messaging-sw.js",
@@ -337,44 +335,51 @@ const token = await getToken(messaging, {
   vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk",
   serviceWorkerRegistration: registration
 });
-    alert("TOKEN BERHASIL");
-alert(token);
+if (!token) {
+  console.log("FCM token kosong");
+  return;
+}
 
 console.log("FCM TOKEN:", token);
-alert("FCM TOKEN:\n" + token);
 
 localStorage.setItem("driverFCMToken", token);
 
-// SIMPAN TOKEN KE FIREBASE
-await update(ref(db, 'drivers/' + auth.currentUser.uid), {
-  fcmToken: token
-});
+// SIMPAN TOKEN KE FIREBASE (AMAN)
+if (auth.currentUser && auth.currentUser.uid) {
 
-alert("TOKEN TERSIMPAN KE FIREBASE");
+  await update(
+    ref(db, 'drivers/' + auth.currentUser.uid),
+    {
+      fcmToken: token
+    }
+  );
+
+  console.log("FCM token tersimpan");
+
+} else {
+
+  console.log("User belum login, token hanya disimpan di localStorage");
+
+}
 
 } catch (err) {
 
-  alert("FCM ERROR");
-
-  alert("Pesan: " + err.message);
-
-  alert("Detail: " + err.toString());
-
   console.error("FCM ERROR:", err);
 
+  // alert("Gagal mengaktifkan notifikasi");
+
 }
 }
 
-alert("SEBELUM SW");
 
 if ('serviceWorker' in navigator) {
 
-  alert("SW TERDETEKSI");
+
 
   navigator.serviceWorker.register('./firebase-messaging-sw.js')
   .then(async (reg) => {
 
-    alert("SW BERHASIL");
+
 
     console.log('FCM Service Worker aktif');
 
@@ -383,7 +388,6 @@ if ('serviceWorker' in navigator) {
   })
   .catch(err => {
 
-    alert("SW GAGAL");
 
     console.error('SW Error:', err);
 
