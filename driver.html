@@ -328,9 +328,15 @@ async function aktifkanFCM() {
     }
     alert("SEBELUM GETTOKEN");
 
-    const token = await getToken(messaging, {
-      vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk"
-    });
+    const registration = await navigator.serviceWorker.register(
+  "/Akamsiperdos/firebase-messaging-sw.js",
+  { scope: "/Akamsiperdos/" }
+);
+
+const token = await getToken(messaging, {
+  vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk",
+  serviceWorkerRegistration: registration
+});
     alert("TOKEN BERHASIL");
 alert(token);
 
