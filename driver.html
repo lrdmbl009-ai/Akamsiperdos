@@ -339,9 +339,17 @@ alert(token);
 
     localStorage.setItem("driverFCMToken", token);
 
-  } catch (err) {
-    console.error("FCM ERROR:", err);
-  }
+} catch (err) {
+
+  alert("FCM ERROR");
+
+  alert("Pesan: " + err.message);
+
+  alert("Detail: " + err.toString());
+
+  console.error("FCM ERROR:", err);
+
+}
 }
 
 alert("SEBELUM SW");
