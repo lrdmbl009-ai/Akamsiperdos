@@ -326,10 +326,13 @@ async function aktifkanFCM() {
       console.log("Notifikasi ditolak");
       return;
     }
+    alert("SEBELUM GETTOKEN");
 
     const token = await getToken(messaging, {
       vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk"
     });
+    alert("TOKEN BERHASIL");
+alert(token);
 
     console.log("FCM TOKEN:", token);
     alert("FCM TOKEN:\n" + token);
