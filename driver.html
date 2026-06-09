@@ -320,6 +320,7 @@ async function aktifkanFCM() {
   try {
 
     const permission = await Notification.requestPermission();
+    alert("Permission: " + permission);
 
     if (permission !== "granted") {
       console.log("Notifikasi ditolak");
