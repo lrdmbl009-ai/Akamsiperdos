@@ -340,10 +340,17 @@ const token = await getToken(messaging, {
     alert("TOKEN BERHASIL");
 alert(token);
 
-    console.log("FCM TOKEN:", token);
-    alert("FCM TOKEN:\n" + token);
+console.log("FCM TOKEN:", token);
+alert("FCM TOKEN:\n" + token);
 
-    localStorage.setItem("driverFCMToken", token);
+localStorage.setItem("driverFCMToken", token);
+
+// SIMPAN TOKEN KE FIREBASE
+await update(ref(db, 'drivers/' + auth.currentUser.uid), {
+  fcmToken: token
+});
+
+alert("TOKEN TERSIMPAN KE FIREBASE");
 
 } catch (err) {
 
