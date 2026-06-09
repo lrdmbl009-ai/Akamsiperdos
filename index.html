@@ -539,6 +539,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, push, onValue, set, update, get, remove, serverTimestamp, off } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+// ========== IMPORT FCM ==========
+import {
+  getMessaging,
+  getToken,
+  onMessage
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyD93ILJjfqLAoLosdXn4Gm_0F20WFiYz2I",
   authDomain: "akamsiperdos-84b0b.firebaseapp.com",
@@ -552,7 +559,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+const messaging = getMessaging(app);
 
+// ========== VARIABEL GLOBAL ==========
 let currentUser = null;
 let activeOrderId = null;
 let activeOrderData = null;
@@ -575,170 +584,247 @@ let vehicleRate = 3000;
 let vehicleName = 'Motor';
 let vehicleCode = 'motor';
 
-function updateChatBadge(roomId, isUnread) { if (isUnread) unreadChats[roomId] = true; else delete unreadChats[roomId]; const total = Object.keys(unreadChats).length; const badge = document.getElementById('chatBadge'); if (badge) badge.style.display = total > 0 ? 'flex' : 'none'; }
-
-// --- ROLE VALIDATION ---
-async function checkUserRoleAndRedirect(user, expectedRole) {
-  if (!user) return false;
-  const snap = await get(ref(db, 'users/'+user.uid));
-  const roleData = snap.val();
-  const role = roleData?.role;
-  if (role !== expectedRole) {
-    if (role === 'driver') window.location.href = 'driver.html';
-    else if (role === 'resto') window.location.href = 'resto.html';
-    else if (role === 'admin') window.location.href = 'admin.html';
-    else window.location.href = 'index.html';
+// ========== FUNGSI FCM UNTUK PELANGGAN ==========
+async function initCustomerFCM() {
+  if (!auth.currentUser || !auth.currentUser.uid) {
+    console.log("⏳ FCM Customer: Menunggu user login");
     return false;
   }
-  return true;
-}
-
-onAuthStateChanged(auth, async user => {
-  if (user && user.emailVerified) {
-    // Pastikan role customer di database
-    const userSnap = await get(ref(db, 'users/'+user.uid));
-    if (!userSnap.exists()) {
-      await set(ref(db, 'users/'+user.uid), { role: 'customer', email: user.email, createdAt: Date.now() });
-    } else if (userSnap.val().role !== 'customer') {
-      // Jika role bukan customer, redirect
-      if (userSnap.val().role === 'driver') window.location.href = 'driver.html';
-      else if (userSnap.val().role === 'resto') window.location.href = 'resto.html';
-      else if (userSnap.val().role === 'admin') window.location.href = 'admin.html';
-      else window.location.href = 'index.html';
-      return;
+  
+  console.log("📱 FCM Customer: Init untuk UID:", auth.currentUser.uid);
+  
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("❌ FCM Customer: Izin notifikasi ditolak");
+      return false;
     }
-    currentUser = user;
-    document.getElementById('loginScreen').style.display = 'none';
-    const snap = await get(ref(db,'pelanggan/'+user.uid));
-    if (!snap.exists()) { const tempNama = sessionStorage.getItem('tempNama') || user.email?.split('@')[0] || 'Pelanggan'; const tempWA = sessionStorage.getItem('tempWA') || ''; await set(ref(db,'pelanggan/'+user.uid),{nama:tempNama,email:user.email,noWA:tempWA,uid:user.uid,createdAt:Date.now()}); sessionStorage.removeItem('tempNama'); sessionStorage.removeItem('tempWA'); }
-    const data = snap.val();
-    document.getElementById('userPill').textContent = '👤 '+(data?.nama||'Saya');
-    loadRestos();
-    resumeActiveOrder();
-    listenChatUnread();
-  } else if (user && !user.emailVerified) { document.getElementById('verifyEmailDisplay').textContent = user.email||''; showStep('step3'); }
-  else { currentUser = null; document.getElementById('loginScreen').style.display = 'flex'; showStep('step1'); }
-});
+    console.log("✅ FCM Customer: Izin notifikasi diberikan");
 
-function listenChatUnread() { const chatRef = ref(db, 'chats'); onValue(chatRef, snap => { const chats = snap.val() || {}; Object.entries(chats).forEach(([roomId, room]) => { const messages = room.messages || {}; const entries = Object.entries(messages).sort((a,b) => (b[1].ts||0)-(a[1].ts||0)); const lastMsg = entries[0]?.[1]; if (lastMsg && lastMsg.sender !== 'pelanggan' && !lastMsg.read && currentChatRoom !== roomId) { updateChatBadge(roomId, true); bunyiChat(); } }); }); }
+    const registration = await navigator.serviceWorker.register(
+      "/Akamsiperdos/firebase-messaging-sw.js",
+      { scope: "/Akamsiperdos/" }
+    );
+    console.log("✅ FCM Customer: Service Worker terdaftar");
 
-window.loginUser = async function() { const email = document.getElementById('loginEmail').value.trim(); const pass = document.getElementById('loginPass').value; if (!email||!pass) { showErr('Email dan password wajib diisi'); return; } const btn=document.getElementById('btnLogin'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { await signInWithEmailAndPassword(auth,email,pass); } catch(e) { const m={'auth/user-not-found':'Email belum terdaftar','auth/wrong-password':'Password salah','auth/invalid-credential':'Email atau password salah','auth/too-many-requests':'Terlalu banyak percobaan'}; showErr(m[e.code]||'Login gagal: '+e.message); } btn.innerHTML='🔑 Masuk'; btn.disabled=false; };
-window.daftarUser = async function() { const nama = document.getElementById('daftarNama').value.trim(); const email = document.getElementById('daftarEmail').value.trim(); const wa = document.getElementById('daftarWA').value.trim(); const pass = document.getElementById('daftarPass').value; const pass2 = document.getElementById('daftarPass2').value; if (!nama||!email||!pass) { showErr('Semua field wajib diisi'); return; } if (pass.length<6) { showErr('Password minimal 6 karakter'); return; } if (pass!==pass2) { showErr('Konfirmasi password tidak cocok'); return; } const btn=document.getElementById('btnDaftar'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { const cred = await createUserWithEmailAndPassword(auth,email,pass); // Set role customer di users
-  await set(ref(db, 'users/'+cred.user.uid), { role: 'customer', email: email, nama: nama, noWA: wa, createdAt: Date.now() });
-  sessionStorage.setItem('tempNama',nama); sessionStorage.setItem('tempWA',wa);
-  await sendEmailVerification(cred.user); document.getElementById('verifyEmailDisplay').textContent=email; showStep('step3'); toast('📧 Email verifikasi terkirim!'); } catch(e) { const m={'auth/email-already-in-use':'Email sudah terdaftar','auth/invalid-email':'Format email tidak valid','auth/weak-password':'Password terlalu lemah'}; showErr(m[e.code]||'Daftar gagal: '+e.message); } btn.innerHTML='✅ Daftar Sekarang'; btn.disabled=false; };
-window.cekVerifikasi = async function() { const user=auth.currentUser; if(!user){showStep('step1');return;} await user.reload(); if (user.emailVerified) toast('✅ Terverifikasi!'); else showErr('Belum diverifikasi. Klik link di email dulu!'); };
-window.kirimUlangVerifikasi = async function() { const user=auth.currentUser; if(!user)return; try{await sendEmailVerification(user);toast('📧 Email dikirim ulang!');}catch(e){showErr('Gagal: '+e.message);} };
-window.lupaPassword = async function() { const email=document.getElementById('loginEmail').value.trim(); if(!email){showErr('Isi email dulu');return;} try{await sendPasswordResetEmail(auth,email);toast('📧 Link reset dikirim ke '+email);}catch(e){showErr('Gagal: '+e.message);} };
-window.showProfile = async function() { if(!currentUser)return; if(confirm('Keluar dari akun '+currentUser.email+'?')){currentUser=null;await signOut(auth);toast('👋 Sampai jumpa!');} };
-window.showDaftar=function(){showStep('step2');clearErr();};
-window.showLogin=function(){showStep('step1');clearErr();};
-function showStep(id){['step1','step2','step3'].forEach(s=>document.getElementById(s).classList.remove('on'));document.getElementById(id).classList.add('on');}
-function clearErr(){document.getElementById('loginError').classList.remove('show');}
-function showErr(msg){const e=document.getElementById('loginError');e.textContent='❌ '+msg;e.classList.add('show');}
-function nowStr(){return new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});}
+    const token = await getToken(messaging, {
+      vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk",
+      serviceWorkerRegistration: registration
+    });
 
-function loadRestos() { const rRef=ref(db,'restos'); onValue(rRef,snap=>renderRestoList(snap.val()||{})); }
-const restoIcons={mie_gacoan:'🍜',ayam_kremes:'🍗',burger_erdogan:'🍔',pizza_narasa:'🍕',ummy_bakery:'🍰'};
-const restoCats={mie_gacoan:'mie',ayam_kremes:'ayam',burger_erdogan:'fastfood',pizza_narasa:'fastfood',ummy_bakery:'dessert'};
-function renderRestoList(restos) { const list=document.getElementById('restoList'); const entries=Object.entries(restos); if(!entries.length){list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:.8rem">Belum ada resto terdaftar</div>';return;} list.innerHTML=entries.map(([id,r])=>`<div class="rcard ${r.status==='tutup'?'tutup':''}" data-cat="${restoCats[id]||'semua'}" data-id="${id}" onclick="pilihResto(this)"><div class="rcard-img">${restoIcons[id]||'🍽️'}</div><div class="rcard-info"><div class="rcard-name">${r.nama||id}</div><div class="rcard-tag">${r.deskripsi||'–'}</div><div class="rcard-meta"><span class="badge star">⭐ ${r.rating||'4.8'}</span><span class="badge tm">⏱ ${r.estimasi||'15-25 mnt'}</span>${r.status==='tutup'?'<span class="badge pr">🔴 Tutup</span>':'<span class="badge tm">🟢 Buka</span>'}</div></div></div>`).join(''); }
+    if (!token) {
+      console.log("❌ FCM Customer: Token kosong");
+      return false;
+    }
 
-function resumeActiveOrder() { if(!currentUser)return; const savedId=localStorage.getItem('myOrderId_'+currentUser.uid); if(!savedId)return; get(ref(db,'orders/'+savedId)).then(snap=>{ const data=snap.val(); const invalid=!data||['dibatalkan_pelanggan','dibatalkan_admin','ditolak_resto','selesai','dibatalkan'].includes(data.status); if(invalid){localStorage.removeItem('myOrderId_'+currentUser.uid);} else{activeOrderId=savedId;activeOrderData=data;updateOrderStatusUI(data,savedId);listenMyOrder(savedId);} }).catch(()=>localStorage.removeItem('myOrderId_'+currentUser.uid)); }
+    console.log("🔑 FCM Customer TOKEN:", token.substring(0, 30) + "...");
 
-async function submitOrder(orderData, btnId, btnLabel) { if(!currentUser){toast('⚠️ Login dulu ya!');return null;} const btn=document.getElementById(btnId); btn.innerHTML='<div class="spinner"></div> Memproses...'; btn.disabled=true; try { const pSnap=await get(ref(db,'pelanggan/'+currentUser.uid)); const pData=pSnap.val()||{}; const pelangganNama=pData.nama||currentUser.email?.split('@')[0]||'Pelanggan'; const pelangganWA=pData.noWA||''; const dataFinal={ ...orderData, pelangganId: currentUser.uid, pelanggan: pelangganNama, pelangganEmail:currentUser.email||'', pelangganWA: pelangganWA, waktu: Date.now(), waktuStr: nowStr() }; const newRef=await push(ref(db,'orders'),dataFinal); localStorage.setItem('myOrderId_'+currentUser.uid,newRef.key); activeOrderId=newRef.key; activeOrderData=dataFinal; closeSheet(); updateOrderStatusUI(dataFinal,newRef.key); listenMyOrder(newRef.key); return newRef.key; } catch(e){toast('❌ Gagal: '+e.message);return null;} finally{btn.innerHTML=btnLabel;btn.disabled=false;} }
+    await update(ref(db, 'users/' + auth.currentUser.uid), {
+      fcmToken: token,
+      lastTokenUpdate: Date.now()
+    });
+    console.log("✅ FCM Customer: Token tersimpan di Firebase");
 
-function listenMyOrder(id) { if(orderListener){off(orderListener);orderListener=null;} const oRef=ref(db,'orders/'+id); onValue(oRef,snap=>{ const data=snap.val(); if(!data)return; activeOrderData=data; updateOrderStatusUI(data,id); if(data.driverId)listenDriverLocation(data.driverId); }); orderListener=oRef; }
+    onMessage(messaging, (payload) => {
+      console.log("📨 Notifikasi Customer:", payload);
+      if (typeof bunyiOrder === 'function') bunyiOrder();
+      if (Notification.permission === "granted") {
+        new Notification(payload.notification?.title || "AKAMSI", {
+          body: payload.notification?.body || "Update pesanan Anda",
+          icon: "./customer-192.png",
+          badge: "./customer-192.png"
+        });
+      }
+      if (activeOrderId && payload.data?.orderId === activeOrderId) {
+        get(ref(db, 'orders/' + activeOrderId)).then(snap => {
+          if (snap.exists()) updateOrderStatusUI(snap.val(), activeOrderId);
+        });
+      }
+    });
 
-function updateOrderStatusUI(data,id) { const card=document.getElementById('orderStatusCard'); card.classList.add('show'); document.getElementById('osId').textContent='#'+id.slice(-6).toUpperCase(); const tipeLabel={makanan:'🍔 Pesan Makanan',penumpang:'🏍️ Antar Penumpang',barang:'📦 Kirim Barang',lainnya:'✨ Layanan Lainnya'}; document.getElementById('osLayanan').textContent=tipeLabel[data.tipe]||(data.tipe||'–'); let driverText = data.driverNama ? data.driverNama+' · '+(data.driverKendaraan||'')+(data.driverPlat?' · '+data.driverPlat:'') : 'Mencari driver...'; document.getElementById('osDriver').textContent=driverText; const labels={ menunggu_konfirmasi:'⏳ Menunggu Konfirmasi Resto', dikonfirmasi:'✅ Dikonfirmasi! Sedang dimasak', menunggu_driver:'🔍 Mencari Driver Terdekat...', driver_ditemukan:'🏍️ Driver Ditemukan! Menuju lokasi jemput', dijemput:'📍 Driver Menuju Tujuan', selesai:'🎉 Pesanan Selesai!' }; const statusEl=document.getElementById('osStatus'); statusEl.textContent=labels[data.status]||data.status; statusEl.className='os-status'; if(['menunggu_konfirmasi','menunggu_driver'].includes(data.status))statusEl.classList.add('menunggu'); else if(['dikonfirmasi','driver_ditemukan','dijemput'].includes(data.status))statusEl.classList.add('proses'); else if(data.status==='selesai')statusEl.classList.add('selesai'); else if(data.status?.includes('dibatal')||data.status?.includes('ditolak'))statusEl.classList.add('batal'); if(data.status==='driver_ditemukan')bunyiOrder(); else if(data.status==='selesai')bunyiSukses(); if(trackMap)updateTrackUI(data); if(data.status==='selesai'){ localStorage.removeItem('myOrderId_'+currentUser?.uid); if(orderListener){off(orderListener);orderListener=null;} setTimeout(()=>card.classList.remove('show'),5000); } }
-
-window.cancelMyOrder = async function() { if(!activeOrderId)return; if(!confirm('Yakin mau batalkan pesanan ini?'))return; const btn=document.getElementById('osCancelBtn'); btn.innerHTML='⏳'; btn.disabled=true; try { await update(ref(db,'orders/'+activeOrderId),{status:'dibatalkan_pelanggan',batalWaktu:Date.now(),batalOleh:'pelanggan'}); await remove(ref(db,'chats/order_'+activeOrderId)).catch(()=>{}); localStorage.removeItem('myOrderId_'+(currentUser?.uid||'')); if(orderListener){off(orderListener);orderListener=null;} if(driverLocListener){off(driverLocListener);driverLocListener=null;} activeOrderId=null; activeOrderData=null; document.getElementById('orderStatusCard').classList.remove('show'); toast('❌ Pesanan berhasil dibatalkan'); } catch(e){toast('❌ Gagal batalkan: '+e.message);} btn.innerHTML='❌ Batal'; btn.disabled=false; };
-
-window.showOrderStatus=function(){if(!activeOrderId){toast('Belum ada pesanan aktif');return;}document.getElementById('orderStatusCard').classList.add('show');};
-
-function listenDriverLocation(driverId) { if(driverLocListener){off(driverLocListener);driverLocListener=null;} const locRef=ref(db,'drivers/'+driverId+'/location'); onValue(locRef,snap=>{ const loc=snap.val(); if(!loc||!trackMap||!driverMarker)return; const newPos=[loc.lat,loc.lng]; smoothTrackMarker(driverMarker,newPos,loc.heading||0); if(prevMarkerPos){ const d=haversineTrack(prevMarkerPos[0],prevMarkerPos[1],loc.lat,loc.lng); const speed=Math.round(d*3600); document.getElementById('trackSpeed').textContent=speed>2?speed+' km/j':'Diam'; } let tLat=null,tLng=null; if(activeOrderData){ if(['driver_ditemukan'].includes(activeOrderData.status)&&activeOrderData.dariLat){ tLat=activeOrderData.dariLat; tLng=activeOrderData.dariLng; } else if(activeOrderData.keLat){ tLat=activeOrderData.keLat; tLng=activeOrderData.keLng; } } if(tLat){ const d=haversineTrack(loc.lat,loc.lng,tLat,tLng); const eta=Math.max(1,Math.round(d*3)); document.getElementById('trackETA').textContent=eta+' mnt'; document.getElementById('trackDist').textContent=d.toFixed(1)+' km'; } prevMarkerPos=newPos; }); driverLocListener=locRef; }
-
-window.openTrackMap = function() { document.getElementById('trackScreen').classList.add('on'); if(!activeOrderData)return; updateTrackUI(activeOrderData); setTimeout(()=>{ if(!trackMap){ const TB=L.latLngBounds(L.latLng(-0.8700,119.8700),L.latLng(-0.8050,119.9300)); trackMap=L.map('trackMapEl',{zoomControl:false,attributionControl:false,maxBounds:TB,maxBoundsViscosity:.7,minZoom:12}).setView([-0.8365,119.8927],15); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,opacity:.88}).addTo(trackMap); L.rectangle(TB,{color:'#4ECDC4',weight:1.5,fill:false,dashArray:'8,6',opacity:.4}).addTo(trackMap); const dIconHtml=`<div style="position:relative;width:52px;height:52px"><div class="pelanggan-marker-pulse"></div><div class="pelanggan-marker-body"><svg width="28" height="28" viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="38" rx="18" ry="10" fill="#1a1a2e" opacity="0.5"/><rect x="20" y="26" width="24" height="14" rx="6" fill="#fff"/><ellipse cx="44" cy="36" rx="5" ry="8" fill="#333" stroke="#fff" stroke-width="1.5"/><ellipse cx="20" cy="36" rx="5" ry="8" fill="#333" stroke="#fff" stroke-width="1.5"/><rect x="42" y="23" width="10" height="3" rx="1.5" fill="#aaa"/><circle cx="30" cy="22" r="8" fill="#4ECDC4"/><circle cx="30" cy="22" r="5" fill="#fff" opacity="0.3"/><ellipse cx="46" cy="30" rx="3" ry="2" fill="#FFC300" opacity="0.9"/></svg></div><div class="pelanggan-marker-shadow"></div></div>`; driverMarker=L.marker([-0.8365,119.8927],{icon:L.divIcon({html:dIconHtml,className:'',iconSize:[52,52],iconAnchor:[26,26]}),zIndexOffset:1000}).addTo(trackMap); if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(pos=>{ const {latitude:lat,longitude:lng}=pos.coords; const myIconHtml=`<div style="position:relative"><div style="width:38px;height:38px;border-radius:50% 50% 50% 0;background:linear-gradient(135deg,#FF6B35,#FF4D4D);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(255,77,77,.5);border:2px solid #fff"><span style="transform:rotate(45deg);font-size:1rem">👤</span></div><div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:12px;height:4px;background:rgba(0,0,0,.2);border-radius:50%;filter:blur(2px)"></div></div>`; myLocMarker=L.marker([lat,lng],{icon:L.divIcon({html:myIconHtml,className:'',iconSize:[38,44],iconAnchor:[19,44]})}).addTo(trackMap).bindPopup('📍 Lokasi kamu'); trackMap.fitBounds([[-0.8365,119.8927],[lat,lng]],{padding:[50,50]}); },null,{enableHighAccuracy:true}); } if(activeOrderData?.driverId) listenDriverLocation(activeOrderData.driverId); } else { trackMap.invalidateSize(); } },150); };
-window.closeTrackMap=function(){document.getElementById('trackScreen').classList.remove('on');};
-
-function updateTrackUI(data) { if(!data)return; const labels={ menunggu_driver: '🔍 Mencari Driver Terdekat...', driver_ditemukan: '🏍️ Driver Menuju Lokasi Jemput', dijemput: '📍 Dalam Perjalanan ke Tujuan', selesai: '🎉 Perjalanan Selesai!' }; const subLabels={ menunggu_driver: 'Sabar ya, driver segera ditemukan', driver_ditemukan: 'Driver sedang menuju titik penjemputanmu', dijemput: 'Kamu sudah dijemput, menuju tujuan', selesai: 'Terima kasih menggunakan AkamsiPerdos!' }; document.getElementById('trackStatus').textContent=labels[data.status]||data.status||'–'; document.getElementById('trackStatusSub').textContent=subLabels[data.status]||'Realtime tracking aktif'; document.getElementById('trackDriverName').textContent=data.driverNama||'Mencari driver...'; document.getElementById('trackDriverVehicle').textContent=data.driverKendaraan||'–'; document.getElementById('trackPlat').textContent=data.driverPlat||'–'; document.getElementById('trackDriverRating').textContent='⭐ '+(data.driverRating||'4.9')+' · Driver terverifikasi'; document.getElementById('trackTarif').textContent=data.tarif||data.totalPembayaran||'–'; }
-
-window.hubungiDriverWA = function() { let wa = activeOrderData?.driverWA || ''; if (!wa && activeOrderData?.driverId) { get(ref(db, 'drivers/' + activeOrderData.driverId)).then(snap => { const data = snap.val(); if (data && data.noWA) openDriverWA(data.noWA); else { toast('📱 Nomor WA driver tidak tersedia'); openChatFromOrder(); } }).catch(() => { toast('📱 Nomor WA driver tidak tersedia'); openChatFromOrder(); }); return; } openDriverWA(wa); }; function openDriverWA(wa) { if (!wa) { toast('📱 Nomor WA driver tidak tersedia'); openChatFromOrder(); return; } let noWA = wa.toString().replace(/[^0-9+]/g, ''); if (noWA.startsWith('08')) noWA = '+62' + noWA.slice(1); if (!noWA.startsWith('+')) noWA = '+' + noWA; const oid = activeOrderId ? '#' + activeOrderId.slice(-6).toUpperCase() : ''; const msg = encodeURIComponent('Halo Kak, saya pelanggan AkamsiPerdos ' + oid + '. Bisa konfirmasi posisi driver? 🙏'); window.open('https://wa.me/' + noWA.replace('+', '') + '?text=' + msg, '_blank'); }
-
-function smoothTrackMarker(marker,newLatLng,heading) { if(!marker||!trackMap)return; const start=marker.getLatLng(),t0=performance.now(),dur=1000; if(trackAnimFrame)cancelAnimationFrame(trackAnimFrame); function animate(now){ const p=Math.min((now-t0)/dur,1),e=1-Math.pow(1-p,3); marker.setLatLng([start.lat+(newLatLng[0]-start.lat)*e,start.lng+(newLatLng[1]-start.lng)*e]); const el=marker.getElement(); if(el){const b=el.querySelector('.pelanggan-marker-body');if(b)b.style.transform='rotate('+heading+'deg)';} if(p<1)trackAnimFrame=requestAnimationFrame(animate); else{marker.setLatLng(newLatLng);trackMap.panTo(newLatLng,{animate:true,duration:.6});} } trackAnimFrame=requestAnimationFrame(animate); }
-function haversineTrack(a,b,c,d){const R=6371,dLat=(c-a)*Math.PI/180,dLng=(d-b)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
-
-
-// AKAMSI_PERBAIKAN_ASLI - Variabel Cargo
-let cargoJarak = 0;
-let cargoUkuran = { name: 'Kecil (<2 kg)', multiplier: 1.0, weightMin: 0, weightMax: 2 };
-let cargoBerat = 1;
-let cargoKendaraan = { name: 'Motor', rate: 3000, minFare: 5000 };
-let cargoPriorityFee = 0;
-let cargoFromLat = null, cargoFromLng = null, cargoToLat = null, cargoToLng = null;
-let activeSheet=null;
-const sheetMap={food:'sheetFood',pass:'sheetPass',cargo:'sheetCargo',other:'sheetOther',orderFood:'sheetOrderFood',formLain:'sheetFormLain'};
-
-window.openSheet = function(type) {
-  if(activeSheet)activeSheet.classList.remove('on');
-  const el=document.getElementById(sheetMap[type]);
-  if(!el)return;
-  document.getElementById('overlay').classList.add('on');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('on')));
-  activeSheet=el;
-  document.body.style.overflow='hidden';
-  
-  if (type === 'pass') {
-    document.querySelectorAll('#priorityOptions [data-priority]').forEach(x => { x.classList.remove('active-priority'); x.style.background = 'rgba(255,255,255,.05)'; x.style.borderColor = 'rgba(255,255,255,.08)'; });
-    if (pts.from && pts.to) calcFare();
+    return true;
+  } catch (err) {
+    console.error("❌ FCM Customer ERROR:", err);
+    return false;
   }
-  if (type === 'cargo') {
-  // Reset ke default
-  document.querySelectorAll('#cargoSizeChips .schip').forEach(x => x.classList.remove('on'));
-  const defaultSize = document.querySelector('#cargoSizeChips .schip:first-child');
-  if (defaultSize) defaultSize.classList.add('on');
-  cargoUkuran = { name: 'Kecil (<2 kg)', multiplier: 1.0, weightMin: 0, weightMax: 2 };
-  
-  document.getElementById('cargoBerat').value = '1';
-  cargoBerat = 1;
-  
-  document.querySelectorAll('#cargoVehicles .opt').forEach(x => x.classList.remove('on'));
-  const defaultVehicle = document.querySelector('#cargoVehicles .opt:first-child');
-  if (defaultVehicle) defaultVehicle.classList.add('on');
-  cargoKendaraan = { name: 'Motor', rate: 3000, minFare: 5000 };
-  
-  document.querySelectorAll('#cargoPriorityOptions [data-priority], .priority-option-cargo').forEach(x => {
-    x.classList.remove('active-cargo-priority');
-    x.style.background = 'rgba(255,255,255,.05)';
-    x.style.borderColor = 'rgba(255,255,255,.08)';
-  });
-  const defaultPriority = document.querySelector('#cargoPriorityOptions [data-priority="0"], .priority-option-cargo');
-  if (defaultPriority) {
-    defaultPriority.classList.add('active-cargo-priority');
-    defaultPriority.style.background = 'rgba(255,77,77,.15)';
-    defaultPriority.style.borderColor = 'var(--primary)';
-  }
-  cargoPriorityFee = 0;
-  
-  document.getElementById('cargoUkuranLabel').textContent = cargoUkuran.name;
-  document.getElementById('cargoKendaraanLabel').textContent = cargoKendaraan.name;
-  document.getElementById('cargoBeratLabel').textContent = cargoBerat + ' kg';
-  
-  updateCargoTotal();
 }
-  if (type === 'cargo') {
-    document.querySelectorAll('#cargoPriorityOptions [data-priority]').forEach(x => { x.classList.remove('active-cargo-priority'); x.style.background = 'rgba(255,255,255,.05)'; x.style.borderColor = 'rgba(255,255,255,.08)'; });
-    updateCargoTotal();
+
+// ========== FUNGSI UTILITY ==========
+function updateChatBadge(roomId, isUnread) {
+  if (isUnread) unreadChats[roomId] = true;
+  else delete unreadChats[roomId];
+  const total = Object.keys(unreadChats).length;
+  const badge = document.getElementById('chatBadge');
+  if (badge) badge.style.display = total > 0 ? 'flex' : 'none';
+}
+
+function nowStr() {
+  return new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+}
+
+function showStep(id) {
+  ['step1','step2','step3'].forEach(s => document.getElementById(s).classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+
+function clearErr() {
+  document.getElementById('loginError').classList.remove('show');
+}
+
+function showErr(msg) {
+  const e = document.getElementById('loginError');
+  e.textContent = '❌ ' + msg;
+  e.classList.add('show');
+}
+
+// ========== FUNGSI LOGIN/REGISTER ==========
+window.loginUser = async function() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if (!email || !pass) { showErr('Email dan password wajib diisi'); return; }
+  const btn = document.getElementById('btnLogin');
+  btn.innerHTML = '<div class="spinner"></div>';
+  btn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    const m = {
+      'auth/user-not-found': 'Email belum terdaftar',
+      'auth/wrong-password': 'Password salah',
+      'auth/invalid-credential': 'Email atau password salah',
+      'auth/too-many-requests': 'Terlalu banyak percobaan'
+    };
+    showErr(m[e.code] || 'Login gagal: ' + e.message);
   }
-  
-  if((type==='pass'||type==='cargo')&&!pts.from){
-    setTimeout(()=>{ if(navigator.geolocation){ toast('📡 Mengambil lokasi kamu...'); navigator.geolocation.getCurrentPosition(pos=>{ const{latitude:lat,longitude:lng}=pos.coords; reverseGeo(lat,lng,addr=>{ pts.from={lat,lng,addr}; const el2=document.getElementById(type==='pass'?'inFrom':'cargoFrom'); if(el2)el2.value=addr; if(type==='pass') calcFare(); else updateCargoTotal(); toast('📍 '+addr.split(',')[0]); }); },()=>{},{ enableHighAccuracy:true,timeout:8000}); } },600);
+  btn.innerHTML = '🔑 Masuk';
+  btn.disabled = false;
+};
+
+window.daftarUser = async function() {
+  const nama = document.getElementById('daftarNama').value.trim();
+  const email = document.getElementById('daftarEmail').value.trim();
+  const wa = document.getElementById('daftarWA').value.trim();
+  const pass = document.getElementById('daftarPass').value;
+  const pass2 = document.getElementById('daftarPass2').value;
+  if (!nama || !email || !pass) { showErr('Semua field wajib diisi'); return; }
+  if (pass.length < 6) { showErr('Password minimal 6 karakter'); return; }
+  if (pass !== pass2) { showErr('Konfirmasi password tidak cocok'); return; }
+  const btn = document.getElementById('btnDaftar');
+  btn.innerHTML = '<div class="spinner"></div>';
+  btn.disabled = true;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await set(ref(db, 'users/' + cred.user.uid), {
+      role: 'customer',
+      email: email,
+      nama: nama,
+      noWA: wa,
+      createdAt: Date.now()
+    });
+    sessionStorage.setItem('tempNama', nama);
+    sessionStorage.setItem('tempWA', wa);
+    await sendEmailVerification(cred.user);
+    document.getElementById('verifyEmailDisplay').textContent = email;
+    showStep('step3');
+    toast('📧 Email verifikasi terkirim!');
+  } catch(e) {
+    const m = {
+      'auth/email-already-in-use': 'Email sudah terdaftar',
+      'auth/invalid-email': 'Format email tidak valid',
+      'auth/weak-password': 'Password terlalu lemah'
+    };
+    showErr(m[e.code] || 'Daftar gagal: ' + e.message);
+  }
+  btn.innerHTML = '✅ Daftar Sekarang';
+  btn.disabled = false;
+};
+
+window.cekVerifikasi = async function() {
+  const user = auth.currentUser;
+  if (!user) { showStep('step1'); return; }
+  await user.reload();
+  if (user.emailVerified) toast('✅ Terverifikasi! Silakan login.');
+  else showErr('Belum diverifikasi. Klik link di email dulu!');
+};
+
+window.kirimUlangVerifikasi = async function() {
+  const user = auth.currentUser;
+  if (!user) return;
+  try {
+    await sendEmailVerification(user);
+    toast('📧 Email dikirim ulang!');
+  } catch(e) {
+    showErr('Gagal: ' + e.message);
   }
 };
-window.closeSheet=function(){if(activeSheet){activeSheet.classList.remove('on');activeSheet=null;}document.getElementById('overlay').classList.remove('on');document.body.style.overflow='';};
 
-let currentCat='semua';
-window.filterCat=function(cat,el){currentCat=cat;document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));el.classList.add('on');filterResto();};
-window.filterResto=function(){const q=document.getElementById('searchResto').value.toLowerCase();document.querySelectorAll('#restoList .rcard').forEach(c=>{const n=c.querySelector('.rcard-name').textContent.toLowerCase();c.style.display=(currentCat==='semua'||c.dataset.cat===currentCat)&&n.includes(q)?'flex':'none';});};
+window.lupaPassword = async function() {
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) { showErr('Isi email dulu'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast('📧 Link reset dikirim ke ' + email);
+  } catch(e) {
+    showErr('Gagal: ' + e.message);
+  }
+};
+
+window.showProfile = async function() {
+  if (!currentUser) return;
+  if (confirm('Keluar dari akun ' + currentUser.email + '?')) {
+    currentUser = null;
+    await signOut(auth);
+    toast('👋 Sampai jumpa!');
+  }
+};
+
+window.showDaftar = function() { showStep('step2'); clearErr(); };
+window.showLogin = function() { showStep('step1'); clearErr(); };
+
+// ========== FUNGSI LOAD RESTO ==========
+function loadRestos() {
+  const rRef = ref(db, 'restos');
+  onValue(rRef, snap => renderRestoList(snap.val() || {}));
+}
+
+const restoIcons = {
+  mie_gacoan: '🍜',
+  ayam_kremes: '🍗',
+  burger_erdogan: '🍔',
+  pizza_narasa: '🍕',
+  ummy_bakery: '🍰'
+};
+
+const restoCats = {
+  mie_gacoan: 'mie',
+  ayam_kremes: 'ayam',
+  burger_erdogan: 'fastfood',
+  pizza_narasa: 'fastfood',
+  ummy_bakery: 'dessert'
+};
+
+function renderRestoList(restos) {
+  const list = document.getElementById('restoList');
+  const entries = Object.entries(restos);
+  if (!entries.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.8rem">Belum ada resto terdaftar</div>';
+    return;
+  }
+  list.innerHTML = entries.map(([id, r]) => `
+    <div class="rcard ${r.status === 'tutup' ? 'tutup' : ''}" data-cat="${restoCats[id] || 'semua'}" data-id="${id}" onclick="pilihResto(this)">
+      <div class="rcard-img">${restoIcons[id] || '🍽️'}</div>
+      <div class="rcard-info">
+        <div class="rcard-name">${r.nama || id}</div>
+        <div class="rcard-tag">${r.deskripsi || '–'}</div>
+        <div class="rcard-meta">
+          <span class="badge star">⭐ ${r.rating || '4.8'}</span>
+          <span class="badge tm">⏱ ${r.estimasi || '15-25 mnt'}</span>
+          ${r.status === 'tutup' ? '<span class="badge pr">🔴 Tutup</span>' : '<span class="badge tm">🟢 Buka</span>'}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
 
 window.pilihResto = function(card) {
   selectedResto = card.dataset.id;
@@ -748,19 +834,772 @@ window.pilihResto = function(card) {
   closeSheet();
   openSheet('orderFood');
   menuCounter = 1;
-  document.getElementById('menuItemsContainer').innerHTML = `<div class="menu-item-row" style="display:flex; gap:8px; margin-bottom:8px; align-items:center"><input type="text" class="form-input" id="menuName1" placeholder="Nama menu" style="flex:2"><input type="number" class="form-input" id="menuQty1" placeholder="Jml" value="1" min="1" style="width:70px"><input type="number" class="form-input" id="menuPrice1" placeholder="Harga" style="width:90px"><button type="button" class="btn-remove-menu" onclick="removeMenuItem(1)" style="background:rgba(255,77,77,.2); border:none; border-radius:8px; width:32px; height:32px; color:var(--primary); cursor:pointer">✕</button></div>`;
+  document.getElementById('menuItemsContainer').innerHTML = `
+    <div class="menu-item-row" style="display:flex; gap:8px; margin-bottom:8px; align-items:center">
+      <input type="text" class="form-input" id="menuName1" placeholder="Nama menu" style="flex:2">
+      <input type="number" class="form-input" id="menuQty1" placeholder="Jml" value="1" min="1" style="width:70px">
+      <input type="number" class="form-input" id="menuPrice1" placeholder="Harga" style="width:90px">
+      <button type="button" class="btn-remove-menu" onclick="removeMenuItem(1)" style="background:rgba(255,77,77,.2); border:none; border-radius:8px; width:32px; height:32px; color:var(--primary); cursor:pointer">✕</button>
+    </div>
+  `;
   updateFoodTotal();
 };
 
-function addMenuItem() { menuCounter++; const container = document.getElementById('menuItemsContainer'); const newRow = document.createElement('div'); newRow.className = 'menu-item-row'; newRow.style.display = 'flex'; newRow.style.gap = '8px'; newRow.style.marginBottom = '8px'; newRow.style.alignItems = 'center'; newRow.innerHTML = `<input type="text" class="form-input" id="menuName${menuCounter}" placeholder="Nama menu" style="flex:2"><input type="number" class="form-input" id="menuQty${menuCounter}" placeholder="Jml" value="1" min="1" style="width:70px"><input type="number" class="form-input" id="menuPrice${menuCounter}" placeholder="Harga" style="width:90px"><button type="button" class="btn-remove-menu" onclick="removeMenuItem(${menuCounter})" style="background:rgba(255,77,77,.2); border:none; border-radius:8px; width:32px; height:32px; color:var(--primary); cursor:pointer">✕</button>`; container.appendChild(newRow); updateFoodTotal(); }
-function removeMenuItem(id) { const row = document.querySelector(`#menuName${id}`)?.closest('.menu-item-row'); if (row) row.remove(); updateFoodTotal(); }
-function updateFoodTotal() { let subtotal = 0; for (let i = 1; i <= menuCounter; i++) { const qty = document.getElementById(`menuQty${i}`)?.value; const price = document.getElementById(`menuPrice${i}`)?.value; if (qty && price) subtotal += parseInt(qty) * parseInt(price); } const ongkir = 5000; let extraFee = 0; if (document.getElementById('extraPlastik')?.checked) extraFee += 2000; if (document.getElementById('extraSendok')?.checked) extraFee += 1000; const total = subtotal + ongkir + extraFee; document.getElementById('foodSubtotal').textContent = `Rp ${subtotal.toLocaleString('id-ID')}`; document.getElementById('foodExtraFee').textContent = `Rp ${extraFee.toLocaleString('id-ID')}`; document.getElementById('foodTotalPrice').textContent = `Rp ${total.toLocaleString('id-ID')}`; const btn = document.getElementById('btnOrderFood'); if (btn) btn.innerHTML = `🛒 Pesan Sekarang (Rp ${total.toLocaleString('id-ID')})`; }
-window.useGPSForFood = function() { if (!navigator.geolocation) { toast('❌ GPS tidak didukung'); return; } toast('📡 Mengambil lokasi...'); navigator.geolocation.getCurrentPosition(pos => { const { latitude: lat, longitude: lng } = pos.coords; reverseGeo(lat, lng, addr => { document.getElementById('foodAlamat').value = addr; toast('✅ Lokasi berhasil diambil'); }); }, () => toast('❌ GPS gagal'), { enableHighAccuracy: true, timeout: 10000 }); };
-window.submitOrderMakanan = async function() { const menuItems = []; for (let i = 1; i <= menuCounter; i++) { const nama = document.getElementById(`menuName${i}`)?.value.trim(); const qty = document.getElementById(`menuQty${i}`)?.value; const harga = document.getElementById(`menuPrice${i}`)?.value; if (nama && qty && harga) menuItems.push({ nama, qty: parseInt(qty), harga: parseInt(harga), subtotal: parseInt(qty) * parseInt(harga) }); } if (menuItems.length === 0) { toast('⚠️ Minimal 1 menu harus diisi!'); return; } const alamat = document.getElementById('foodAlamat').value.trim(); const catatan = document.getElementById('foodCatatan').value.trim(); const catatanDriver = document.getElementById('foodCatatanDriver').value.trim(); const metodePembayaran = document.getElementById('foodPaymentMethod').value; let extraFee = 0; let extraItems = []; if (document.getElementById('extraPlastik')?.checked) { extraFee += 2000; extraItems.push('Tas Plastik'); } if (document.getElementById('extraSendok')?.checked) { extraFee += 1000; extraItems.push('Sendok/Garpu'); } if (document.getElementById('extraSambal')?.checked) extraItems.push('Sambal Extra'); if (!alamat) { toast('⚠️ Alamat wajib diisi!'); return; } const subtotal = menuItems.reduce((sum, item) => sum + item.subtotal, 0); const ongkir = 5000; const total = subtotal + ongkir + extraFee; const id = await submitOrder({ tipe: 'makanan', resto: selectedResto, restoNama: document.getElementById('selectedRestoName').textContent, menuItems: menuItems, alamat: alamat, catatan: catatan, catatanDriver: catatanDriver, metodePembayaran: metodePembayaran, extraItems: extraItems, extraFee: extraFee, subtotal: subtotal, ongkir: ongkir, totalPembayaran: total, status: 'menunggu_konfirmasi' }, 'btnOrderFood', '🛒 Pesan Sekarang'); if (id) { bunyiSukses(); toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...'); } };
+function addMenuItem() {
+  menuCounter++;
+  const container = document.getElementById('menuItemsContainer');
+  const newRow = document.createElement('div');
+  newRow.className = 'menu-item-row';
+  newRow.style.display = 'flex';
+  newRow.style.gap = '8px';
+  newRow.style.marginBottom = '8px';
+  newRow.style.alignItems = 'center';
+  newRow.innerHTML = `
+    <input type="text" class="form-input" id="menuName${menuCounter}" placeholder="Nama menu" style="flex:2">
+    <input type="number" class="form-input" id="menuQty${menuCounter}" placeholder="Jml" value="1" min="1" style="width:70px">
+    <input type="number" class="form-input" id="menuPrice${menuCounter}" placeholder="Harga" style="width:90px">
+    <button type="button" class="btn-remove-menu" onclick="removeMenuItem(${menuCounter})" style="background:rgba(255,77,77,.2); border:none; border-radius:8px; width:32px; height:32px; color:var(--primary); cursor:pointer">✕</button>
+  `;
+  container.appendChild(newRow);
+  updateFoodTotal();
+}
 
-window.submitOrderPenumpang = async function() { if(!pts.from||!pts.to){toast('⚠️ Lengkapi lokasi jemput & tujuan!');return;} const d=haversine(pts.from.lat,pts.from.lng,pts.to.lat,pts.to.lng); let minFare = 3000; let rate = 3000; const selectedOpt = document.querySelector('#sheetPass .opt.on'); if(selectedOpt) { rate = parseInt(selectedOpt.dataset.rate) || 3000; minFare = parseInt(selectedOpt.dataset.min) || 3000; } let price = Math.round(d * rate / 500) * 500; if (price < minFare) price = minFare; if (d < 0.2 && price > 4000) price = 4000; if (d < 0.5 && price > 6000) price = 6000; let priorityFee = 0; const activePriority = document.querySelector('#priorityOptions [data-priority].active-priority'); if (activePriority && activePriority.dataset.priority) {
-  priorityFee = parseInt(activePriority.dataset.priority) || 0;
-} const totalPrice = price + priorityFee; const id = await submitOrder({ tipe:'penumpang', dari:pts.from.addr, dariLat:pts.from.lat, dariLng:pts.from.lng, ke:pts.to.addr, keLat:pts.to.lat, keLng:pts.to.lng, kendaraan:vehicleName, kendaraanCode: vehicleCode, tarif:'Rp '+price.toLocaleString('id-ID'), jarak:d.toFixed(1)+' km', priorityFee: priorityFee, totalPembayaran: totalPrice, status:'menunggu_driver' },'btnOrderPass','📍 Pesan Sekarang'); if(id){bunyiSukses();toast('✅ Mencari driver terdekat...');} };
+function removeMenuItem(id) {
+  const row = document.querySelector(`#menuName${id}`)?.closest('.menu-item-row');
+  if (row) row.remove();
+  updateFoodTotal();
+}
+
+function updateFoodTotal() {
+  let subtotal = 0;
+  for (let i = 1; i <= menuCounter; i++) {
+    const qty = document.getElementById(`menuQty${i}`)?.value;
+    const price = document.getElementById(`menuPrice${i}`)?.value;
+    if (qty && price) subtotal += parseInt(qty) * parseInt(price);
+  }
+  const ongkir = 5000;
+  let extraFee = 0;
+  if (document.getElementById('extraPlastik')?.checked) extraFee += 2000;
+  if (document.getElementById('extraSendok')?.checked) extraFee += 1000;
+  const total = subtotal + ongkir + extraFee;
+  document.getElementById('foodSubtotal').textContent = `Rp ${subtotal.toLocaleString('id-ID')}`;
+  document.getElementById('foodExtraFee').textContent = `Rp ${extraFee.toLocaleString('id-ID')}`;
+  document.getElementById('foodTotalPrice').textContent = `Rp ${total.toLocaleString('id-ID')}`;
+  const btn = document.getElementById('btnOrderFood');
+  if (btn) btn.innerHTML = `🛒 Pesan Sekarang (Rp ${total.toLocaleString('id-ID')})`;
+}
+
+window.submitOrderMakanan = async function() {
+  const menuItems = [];
+  for (let i = 1; i <= menuCounter; i++) {
+    const nama = document.getElementById(`menuName${i}`)?.value.trim();
+    const qty = document.getElementById(`menuQty${i}`)?.value;
+    const harga = document.getElementById(`menuPrice${i}`)?.value;
+    if (nama && qty && harga) {
+      menuItems.push({
+        nama,
+        qty: parseInt(qty),
+        harga: parseInt(harga),
+        subtotal: parseInt(qty) * parseInt(harga)
+      });
+    }
+  }
+  if (menuItems.length === 0) {
+    toast('⚠️ Minimal 1 menu harus diisi!');
+    return;
+  }
+  const alamat = document.getElementById('foodAlamat').value.trim();
+  const catatan = document.getElementById('foodCatatan').value.trim();
+  const catatanDriver = document.getElementById('foodCatatanDriver').value.trim();
+  const metodePembayaran = document.getElementById('foodPaymentMethod').value;
+  let extraFee = 0;
+  let extraItems = [];
+  if (document.getElementById('extraPlastik')?.checked) {
+    extraFee += 2000;
+    extraItems.push('Tas Plastik');
+  }
+  if (document.getElementById('extraSendok')?.checked) {
+    extraFee += 1000;
+    extraItems.push('Sendok/Garpu');
+  }
+  if (document.getElementById('extraSambal')?.checked) extraItems.push('Sambal Extra');
+  if (!alamat) {
+    toast('⚠️ Alamat wajib diisi!');
+    return;
+  }
+  const subtotal = menuItems.reduce((sum, item) => sum + item.subtotal, 0);
+  const ongkir = 5000;
+  const total = subtotal + ongkir + extraFee;
+  const id = await submitOrder({
+    tipe: 'makanan',
+    resto: selectedResto,
+    restoNama: document.getElementById('selectedRestoName').textContent,
+    menuItems: menuItems,
+    alamat: alamat,
+    catatan: catatan,
+    catatanDriver: catatanDriver,
+    metodePembayaran: metodePembayaran,
+    extraItems: extraItems,
+    extraFee: extraFee,
+    subtotal: subtotal,
+    ongkir: ongkir,
+    totalPembayaran: total,
+    status: 'menunggu_konfirmasi'
+  }, 'btnOrderFood', '🛒 Pesan Sekarang');
+  if (id) {
+    bunyiSukses();
+    toast('✅ Pesanan dikirim! Menunggu konfirmasi resto...');
+  }
+};
+
+// ========== FUNGSI SUBMIT ORDER UMUM ==========
+async function submitOrder(orderData, btnId, btnLabel) {
+  if (!currentUser) {
+    toast('⚠️ Login dulu ya!');
+    return null;
+  }
+  const btn = document.getElementById(btnId);
+  btn.innerHTML = '<div class="spinner"></div> Memproses...';
+  btn.disabled = true;
+  try {
+    const pSnap = await get(ref(db, 'pelanggan/' + currentUser.uid));
+    const pData = pSnap.val() || {};
+    const pelangganNama = pData.nama || currentUser.email?.split('@')[0] || 'Pelanggan';
+    const pelangganWA = pData.noWA || '';
+    const dataFinal = {
+      ...orderData,
+      pelangganId: currentUser.uid,
+      pelanggan: pelangganNama,
+      pelangganEmail: currentUser.email || '',
+      pelangganWA: pelangganWA,
+      waktu: Date.now(),
+      waktuStr: nowStr()
+    };
+    const newRef = await push(ref(db, 'orders'), dataFinal);
+    localStorage.setItem('myOrderId_' + currentUser.uid, newRef.key);
+    activeOrderId = newRef.key;
+    activeOrderData = dataFinal;
+    closeSheet();
+    updateOrderStatusUI(dataFinal, newRef.key);
+    listenMyOrder(newRef.key);
+    return newRef.key;
+  } catch(e) {
+    toast('❌ Gagal: ' + e.message);
+    return null;
+  } finally {
+    btn.innerHTML = btnLabel;
+    btn.disabled = false;
+  }
+}
+
+function listenMyOrder(id) {
+  if (orderListener) {
+    off(orderListener);
+    orderListener = null;
+  }
+  const oRef = ref(db, 'orders/' + id);
+  onValue(oRef, snap => {
+    const data = snap.val();
+    if (!data) return;
+    activeOrderData = data;
+    updateOrderStatusUI(data, id);
+    if (data.driverId) listenDriverLocation(data.driverId);
+  });
+  orderListener = oRef;
+}
+
+function updateOrderStatusUI(data, id) {
+  const card = document.getElementById('orderStatusCard');
+  card.classList.add('show');
+  document.getElementById('osId').textContent = '#' + id.slice(-6).toUpperCase();
+  const tipeLabel = {
+    makanan: '🍔 Pesan Makanan',
+    penumpang: '🏍️ Antar Penumpang',
+    barang: '📦 Kirim Barang',
+    lainnya: '✨ Layanan Lainnya'
+  };
+  document.getElementById('osLayanan').textContent = tipeLabel[data.tipe] || (data.tipe || '–');
+  let driverText = data.driverNama ? data.driverNama + ' · ' + (data.driverKendaraan || '') + (data.driverPlat ? ' · ' + data.driverPlat : '') : 'Mencari driver...';
+  document.getElementById('osDriver').textContent = driverText;
+  const labels = {
+    menunggu_konfirmasi: '⏳ Menunggu Konfirmasi Resto',
+    dikonfirmasi: '✅ Dikonfirmasi! Sedang dimasak',
+    menunggu_driver: '🔍 Mencari Driver Terdekat...',
+    driver_ditemukan: '🏍️ Driver Ditemukan! Menuju lokasi jemput',
+    dijemput: '📍 Driver Menuju Tujuan',
+    selesai: '🎉 Pesanan Selesai!'
+  };
+  const statusEl = document.getElementById('osStatus');
+  statusEl.textContent = labels[data.status] || data.status;
+  statusEl.className = 'os-status';
+  if (['menunggu_konfirmasi', 'menunggu_driver'].includes(data.status)) statusEl.classList.add('menunggu');
+  else if (['dikonfirmasi', 'driver_ditemukan', 'dijemput'].includes(data.status)) statusEl.classList.add('proses');
+  else if (data.status === 'selesai') statusEl.classList.add('selesai');
+  else if (data.status?.includes('dibatal') || data.status?.includes('ditolak')) statusEl.classList.add('batal');
+  if (data.status === 'driver_ditemukan') bunyiOrder();
+  else if (data.status === 'selesai') bunyiSukses();
+  if (trackMap) updateTrackUI(data);
+  if (data.status === 'selesai') {
+    localStorage.removeItem('myOrderId_' + currentUser?.uid);
+    if (orderListener) {
+      off(orderListener);
+      orderListener = null;
+    }
+    setTimeout(() => card.classList.remove('show'), 5000);
+  }
+}
+
+function resumeActiveOrder() {
+  if (!currentUser) return;
+  const savedId = localStorage.getItem('myOrderId_' + currentUser.uid);
+  if (!savedId) return;
+  get(ref(db, 'orders/' + savedId)).then(snap => {
+    const data = snap.val();
+    const invalid = !data || ['dibatalkan_pelanggan', 'dibatalkan_admin', 'ditolak_resto', 'selesai', 'dibatalkan'].includes(data.status);
+    if (invalid) {
+      localStorage.removeItem('myOrderId_' + currentUser.uid);
+    } else {
+      activeOrderId = savedId;
+      activeOrderData = data;
+      updateOrderStatusUI(data, savedId);
+      listenMyOrder(savedId);
+    }
+  }).catch(() => localStorage.removeItem('myOrderId_' + currentUser.uid));
+}
+
+window.cancelMyOrder = async function() {
+  if (!activeOrderId) return;
+  if (!confirm('Yakin mau batalkan pesanan ini?')) return;
+  const btn = document.getElementById('osCancelBtn');
+  btn.innerHTML = '⏳';
+  btn.disabled = true;
+  try {
+    await update(ref(db, 'orders/' + activeOrderId), {
+      status: 'dibatalkan_pelanggan',
+      batalWaktu: Date.now(),
+      batalOleh: 'pelanggan'
+    });
+    await remove(ref(db, 'chats/order_' + activeOrderId)).catch(() => {});
+    localStorage.removeItem('myOrderId_' + (currentUser?.uid || ''));
+    if (orderListener) {
+      off(orderListener);
+      orderListener = null;
+    }
+    if (driverLocListener) {
+      off(driverLocListener);
+      driverLocListener = null;
+    }
+    activeOrderId = null;
+    activeOrderData = null;
+    document.getElementById('orderStatusCard').classList.remove('show');
+    toast('❌ Pesanan berhasil dibatalkan');
+  } catch(e) {
+    toast('❌ Gagal batalkan: ' + e.message);
+  }
+  btn.innerHTML = '❌ Batal';
+  btn.disabled = false;
+};
+
+window.showOrderStatus = function() {
+  if (!activeOrderId) {
+    toast('Belum ada pesanan aktif');
+    return;
+  }
+  document.getElementById('orderStatusCard').classList.add('show');
+};
+
+// ========== FUNGSI TRACKING DRIVER ==========
+function listenDriverLocation(driverId) {
+  if (driverLocListener) {
+    off(driverLocListener);
+    driverLocListener = null;
+  }
+  const locRef = ref(db, 'drivers/' + driverId + '/location');
+  onValue(locRef, snap => {
+    const loc = snap.val();
+    if (!loc || !trackMap || !driverMarker) return;
+    const newPos = [loc.lat, loc.lng];
+    smoothTrackMarker(driverMarker, newPos, loc.heading || 0);
+    if (prevMarkerPos) {
+      const d = haversineTrack(prevMarkerPos[0], prevMarkerPos[1], loc.lat, loc.lng);
+      const speed = Math.round(d * 3600);
+      document.getElementById('trackSpeed').textContent = speed > 2 ? speed + ' km/j' : 'Diam';
+    }
+    let tLat = null, tLng = null;
+    if (activeOrderData) {
+      if (['driver_ditemukan'].includes(activeOrderData.status) && activeOrderData.dariLat) {
+        tLat = activeOrderData.dariLat;
+        tLng = activeOrderData.dariLng;
+      } else if (activeOrderData.keLat) {
+        tLat = activeOrderData.keLat;
+        tLng = activeOrderData.keLng;
+      }
+    }
+    if (tLat) {
+      const d = haversineTrack(loc.lat, loc.lng, tLat, tLng);
+      const eta = Math.max(1, Math.round(d * 3));
+      document.getElementById('trackETA').textContent = eta + ' mnt';
+      document.getElementById('trackDist').textContent = d.toFixed(1) + ' km';
+    }
+    prevMarkerPos = newPos;
+  });
+  driverLocListener = locRef;
+}
+
+window.openTrackMap = function() {
+  document.getElementById('trackScreen').classList.add('on');
+  if (!activeOrderData) return;
+  updateTrackUI(activeOrderData);
+  setTimeout(() => {
+    if (!trackMap) {
+      const TB = L.latLngBounds(L.latLng(-0.8700, 119.8700), L.latLng(-0.8050, 119.9300));
+      trackMap = L.map('trackMapEl', {
+        zoomControl: false,
+        attributionControl: false,
+        maxBounds: TB,
+        maxBoundsViscosity: .7,
+        minZoom: 12
+      }).setView([-0.8365, 119.8927], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        opacity: .88
+      }).addTo(trackMap);
+      L.rectangle(TB, {
+        color: '#4ECDC4',
+        weight: 1.5,
+        fill: false,
+        dashArray: '8,6',
+        opacity: .4
+      }).addTo(trackMap);
+      const dIconHtml = `<div style="position:relative;width:52px;height:52px"><div class="pelanggan-marker-pulse"></div><div class="pelanggan-marker-body"><svg width="28" height="28" viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="38" rx="18" ry="10" fill="#1a1a2e" opacity="0.5"/><rect x="20" y="26" width="24" height="14" rx="6" fill="#fff"/><ellipse cx="44" cy="36" rx="5" ry="8" fill="#333" stroke="#fff" stroke-width="1.5"/><ellipse cx="20" cy="36" rx="5" ry="8" fill="#333" stroke="#fff" stroke-width="1.5"/><rect x="42" y="23" width="10" height="3" rx="1.5" fill="#aaa"/><circle cx="30" cy="22" r="8" fill="#4ECDC4"/><circle cx="30" cy="22" r="5" fill="#fff" opacity="0.3"/><ellipse cx="46" cy="30" rx="3" ry="2" fill="#FFC300" opacity="0.9"/></svg></div><div class="pelanggan-marker-shadow"></div></div>`;
+      driverMarker = L.marker([-0.8365, 119.8927], {
+        icon: L.divIcon({
+          html: dIconHtml,
+          className: '',
+          iconSize: [52, 52],
+          iconAnchor: [26, 26]
+        }),
+        zIndexOffset: 1000
+      }).addTo(trackMap);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          const myIconHtml = `<div style="position:relative"><div style="width:38px;height:38px;border-radius:50% 50% 50% 0;background:linear-gradient(135deg,#FF6B35,#FF4D4D);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(255,77,77,.5);border:2px solid #fff"><span style="transform:rotate(45deg);font-size:1rem">👤</span></div><div style="position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:12px;height:4px;background:rgba(0,0,0,.2);border-radius:50%;filter:blur(2px)"></div></div>`;
+          myLocMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              html: myIconHtml,
+              className: '',
+              iconSize: [38, 44],
+              iconAnchor: [19, 44]
+            })
+          }).addTo(trackMap).bindPopup('📍 Lokasi kamu');
+          trackMap.fitBounds([[-0.8365, 119.8927], [lat, lng]], { padding: [50, 50] });
+        }, null, { enableHighAccuracy: true });
+      }
+      if (activeOrderData?.driverId) listenDriverLocation(activeOrderData.driverId);
+    } else {
+      trackMap.invalidateSize();
+    }
+  }, 150);
+};
+
+window.closeTrackMap = function() {
+  document.getElementById('trackScreen').classList.remove('on');
+};
+
+function updateTrackUI(data) {
+  if (!data) return;
+  const labels = {
+    menunggu_driver: '🔍 Mencari Driver Terdekat...',
+    driver_ditemukan: '🏍️ Driver Menuju Lokasi Jemput',
+    dijemput: '📍 Dalam Perjalanan ke Tujuan',
+    selesai: '🎉 Perjalanan Selesai!'
+  };
+  const subLabels = {
+    menunggu_driver: 'Sabar ya, driver segera ditemukan',
+    driver_ditemukan: 'Driver sedang menuju titik penjemputanmu',
+    dijemput: 'Kamu sudah dijemput, menuju tujuan',
+    selesai: 'Terima kasih menggunakan AkamsiPerdos!'
+  };
+  document.getElementById('trackStatus').textContent = labels[data.status] || data.status || '–';
+  document.getElementById('trackStatusSub').textContent = subLabels[data.status] || 'Realtime tracking aktif';
+  document.getElementById('trackDriverName').textContent = data.driverNama || 'Mencari driver...';
+  document.getElementById('trackDriverVehicle').textContent = data.driverKendaraan || '–';
+  document.getElementById('trackPlat').textContent = data.driverPlat || '–';
+  document.getElementById('trackDriverRating').textContent = '⭐ ' + (data.driverRating || '4.9') + ' · Driver terverifikasi';
+  document.getElementById('trackTarif').textContent = data.tarif || data.totalPembayaran || '–';
+}
+
+window.hubungiDriverWA = function() {
+  let wa = activeOrderData?.driverWA || '';
+  if (!wa && activeOrderData?.driverId) {
+    get(ref(db, 'drivers/' + activeOrderData.driverId)).then(snap => {
+      const data = snap.val();
+      if (data && data.noWA) openDriverWA(data.noWA);
+      else {
+        toast('📱 Nomor WA driver tidak tersedia');
+        openChatFromOrder();
+      }
+    }).catch(() => {
+      toast('📱 Nomor WA driver tidak tersedia');
+      openChatFromOrder();
+    });
+    return;
+  }
+  openDriverWA(wa);
+};
+
+function openDriverWA(wa) {
+  if (!wa) {
+    toast('📱 Nomor WA driver tidak tersedia');
+    openChatFromOrder();
+    return;
+  }
+  let noWA = wa.toString().replace(/[^0-9+]/g, '');
+  if (noWA.startsWith('08')) noWA = '+62' + noWA.slice(1);
+  if (!noWA.startsWith('+')) noWA = '+' + noWA;
+  const oid = activeOrderId ? '#' + activeOrderId.slice(-6).toUpperCase() : '';
+  const msg = encodeURIComponent('Halo Kak, saya pelanggan AkamsiPerdos ' + oid + '. Bisa konfirmasi posisi driver? 🙏');
+  window.open('https://wa.me/' + noWA.replace('+', '') + '?text=' + msg, '_blank');
+}
+
+function smoothTrackMarker(marker, newLatLng, heading) {
+  if (!marker || !trackMap) return;
+  const start = marker.getLatLng(),
+    t0 = performance.now(),
+    dur = 1000;
+  if (trackAnimFrame) cancelAnimationFrame(trackAnimFrame);
+
+  function animate(now) {
+    const p = Math.min((now - t0) / dur, 1),
+      e = 1 - Math.pow(1 - p, 3);
+    marker.setLatLng([start.lat + (newLatLng[0] - start.lat) * e, start.lng + (newLatLng[1] - start.lng) * e]);
+    const el = marker.getElement();
+    if (el) {
+      const b = el.querySelector('.pelanggan-marker-body');
+      if (b) b.style.transform = 'rotate(' + heading + 'deg)';
+    }
+    if (p < 1) trackAnimFrame = requestAnimationFrame(animate);
+    else {
+      marker.setLatLng(newLatLng);
+      trackMap.panTo(newLatLng, { animate: true, duration: .6 });
+    }
+  }
+  trackAnimFrame = requestAnimationFrame(animate);
+}
+
+function haversineTrack(a, b, c, d) {
+  const R = 6371,
+    dLat = (c - a) * Math.PI / 180,
+    dLng = (d - b) * Math.PI / 180;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a * Math.PI / 180) * Math.cos(c * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+// ========== FUNGSI SHEET ==========
+let activeSheet = null;
+const sheetMap = {
+  food: 'sheetFood',
+  pass: 'sheetPass',
+  cargo: 'sheetCargo',
+  other: 'sheetOther',
+  orderFood: 'sheetOrderFood',
+  formLain: 'sheetFormLain'
+};
+
+window.openSheet = function(type) {
+  if (activeSheet) activeSheet.classList.remove('on');
+  const el = document.getElementById(sheetMap[type]);
+  if (!el) return;
+  document.getElementById('overlay').classList.add('on');
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
+  activeSheet = el;
+  document.body.style.overflow = 'hidden';
+
+  if (type === 'pass') {
+    document.querySelectorAll('#priorityOptions [data-priority]').forEach(x => {
+      x.classList.remove('active-priority');
+      x.style.background = 'rgba(255,255,255,.05)';
+      x.style.borderColor = 'rgba(255,255,255,.08)';
+    });
+    if (pts.from && pts.to) calcFare();
+  }
+  if (type === 'cargo') {
+    document.querySelectorAll('#cargoSizeChips .schip').forEach(x => x.classList.remove('on'));
+    const defaultSize = document.querySelector('#cargoSizeChips .schip:first-child');
+    if (defaultSize) defaultSize.classList.add('on');
+    cargoUkuran = {
+      name: 'Kecil (<2 kg)',
+      multiplier: 1.0,
+      weightMin: 0,
+      weightMax: 2
+    };
+
+    document.getElementById('cargoBerat').value = '1';
+    cargoBerat = 1;
+
+    document.querySelectorAll('#cargoVehicles .opt').forEach(x => x.classList.remove('on'));
+    const defaultVehicle = document.querySelector('#cargoVehicles .opt:first-child');
+    if (defaultVehicle) defaultVehicle.classList.add('on');
+    cargoKendaraan = {
+      name: 'Motor',
+      rate: 3000,
+      minFare: 5000
+    };
+
+    document.querySelectorAll('#cargoPriorityOptions [data-priority], .priority-option-cargo').forEach(x => {
+      x.classList.remove('active-cargo-priority');
+      x.style.background = 'rgba(255,255,255,.05)';
+      x.style.borderColor = 'rgba(255,255,255,.08)';
+    });
+    const defaultPriority = document.querySelector('#cargoPriorityOptions [data-priority="0"], .priority-option-cargo');
+    if (defaultPriority) {
+      defaultPriority.classList.add('active-cargo-priority');
+      defaultPriority.style.background = 'rgba(255,77,77,.15)';
+      defaultPriority.style.borderColor = 'var(--primary)';
+    }
+    cargoPriorityFee = 0;
+
+    document.getElementById('cargoUkuranLabel').textContent = cargoUkuran.name;
+    document.getElementById('cargoKendaraanLabel').textContent = cargoKendaraan.name;
+    document.getElementById('cargoBeratLabel').textContent = cargoBerat + ' kg';
+
+    updateCargoTotal();
+  }
+  if (type === 'cargo') {
+    document.querySelectorAll('#cargoPriorityOptions [data-priority]').forEach(x => {
+      x.classList.remove('active-cargo-priority');
+      x.style.background = 'rgba(255,255,255,.05)';
+      x.style.borderColor = 'rgba(255,255,255,.08)';
+    });
+    updateCargoTotal();
+  }
+
+  if ((type === 'pass' || type === 'cargo') && !pts.from) {
+    setTimeout(() => {
+      if (navigator.geolocation) {
+        toast('📡 Mengambil lokasi kamu...');
+        navigator.geolocation.getCurrentPosition(pos => {
+          const { latitude: lat, longitude: lng } = pos.coords;
+          reverseGeo(lat, lng, addr => {
+            pts.from = { lat, lng, addr };
+            const el2 = document.getElementById(type === 'pass' ? 'inFrom' : 'cargoFrom');
+            if (el2) el2.value = addr;
+            if (type === 'pass') calcFare();
+            else updateCargoTotal();
+            toast('📍 ' + addr.split(',')[0]);
+          });
+        }, () => {}, { enableHighAccuracy: true, timeout: 8000 });
+      }
+    }, 600);
+  }
+};
+
+window.closeSheet = function() {
+  if (activeSheet) {
+    activeSheet.classList.remove('on');
+    activeSheet = null;
+  }
+  document.getElementById('overlay').classList.remove('on');
+  document.body.style.overflow = '';
+};
+
+// ========== FUNGSI PENUMPANG ==========
+window.submitOrderPenumpang = async function() {
+  if (!pts.from || !pts.to) {
+    toast('⚠️ Lengkapi lokasi jemput & tujuan!');
+    return;
+  }
+  const d = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
+  let minFare = 3000;
+  let rate = 3000;
+  const selectedOpt = document.querySelector('#sheetPass .opt.on');
+  if (selectedOpt) {
+    rate = parseInt(selectedOpt.dataset.rate) || 3000;
+    minFare = parseInt(selectedOpt.dataset.min) || 3000;
+  }
+  let price = Math.round(d * rate / 500) * 500;
+  if (price < minFare) price = minFare;
+  if (d < 0.2 && price > 4000) price = 4000;
+  if (d < 0.5 && price > 6000) price = 6000;
+  let priorityFee = 0;
+  const activePriority = document.querySelector('#priorityOptions [data-priority].active-priority');
+  if (activePriority && activePriority.dataset.priority) {
+    priorityFee = parseInt(activePriority.dataset.priority) || 0;
+  }
+  const totalPrice = price + priorityFee;
+  const id = await submitOrder({
+    tipe: 'penumpang',
+    dari: pts.from.addr,
+    dariLat: pts.from.lat,
+    dariLng: pts.from.lng,
+    ke: pts.to.addr,
+    keLat: pts.to.lat,
+    keLng: pts.to.lng,
+    kendaraan: vehicleName,
+    kendaraanCode: vehicleCode,
+    tarif: 'Rp ' + price.toLocaleString('id-ID'),
+    jarak: d.toFixed(1) + ' km',
+    priorityFee: priorityFee,
+    totalPembayaran: totalPrice,
+    status: 'menunggu_driver'
+  }, 'btnOrderPass', '📍 Pesan Sekarang');
+  if (id) {
+    bunyiSukses();
+    toast('✅ Mencari driver terdekat...');
+  }
+};
+
+function calcFare() {
+  const fb = document.getElementById('fareBox');
+  if (!pts.from || !pts.to) {
+    fb.style.display = 'none';
+    return;
+  }
+  const d = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
+  const mins = Math.max(1, Math.round(d * 3));
+  let price = Math.round(d * vehicleRate / 500) * 500;
+  if (price < 3000) price = 3000;
+  if (d < 0.2 && price > 4000) price = 4000;
+  if (d < 0.5 && price > 6000) price = 6000;
+  let priorityFee = 0;
+  const activePriority = document.querySelector('#priorityOptions .active-priority');
+  if (activePriority) priorityFee = parseInt(activePriority.dataset.priority) || 0;
+  const totalPrice = price + priorityFee;
+  document.getElementById('fDist').textContent = d.toFixed(1) + ' km';
+  document.getElementById('fTime').textContent = mins + ' menit';
+  if (priorityFee > 0) {
+    document.getElementById('fPrice').innerHTML = `<span style="font-size:.85rem">Rp ${price.toLocaleString('id-ID')}</span><span style="color:var(--primary);font-size:.7rem"> + Rp ${priorityFee.toLocaleString('id-ID')} (cepat)</span><br><span style="color:var(--accent);font-size:.85rem">Total: Rp ${totalPrice.toLocaleString('id-ID')}</span>`;
+  } else {
+    document.getElementById('fPrice').innerHTML = `Rp ${price.toLocaleString('id-ID')}`;
+  }
+  fb.style.display = 'block';
+  const btn = document.getElementById('btnOrderPass');
+  if (btn) btn.innerHTML = `📍 Pesan Sekarang (Rp ${totalPrice.toLocaleString('id-ID')})`;
+}
+
+window.pickVehicle = function(el) {
+  document.querySelectorAll('#sheetPass .opt').forEach(x => x.classList.remove('on'));
+  el.classList.add('on');
+  vehicleRate = parseInt(el.dataset.rate);
+  vehicleName = el.querySelector('.opt-name').textContent;
+  vehicleCode = vehicleName === 'Motor' ? 'motor' : vehicleName === 'Motor Listrik' ? 'motor_listrik' : vehicleName === 'Mobil Reguler' ? 'mobil' : 'mobil_xl';
+  calcFare();
+};
+
+window.pickPriority = function(el) {
+  document.querySelectorAll('#priorityOptions [data-priority]').forEach(x => {
+    x.classList.remove('active-priority');
+    x.style.background = 'rgba(255,255,255,.05)';
+    x.style.borderColor = 'rgba(255,255,255,.08)';
+  });
+  el.classList.add('active-priority');
+  el.style.background = 'rgba(255,77,77,.15)';
+  el.style.borderColor = 'var(--primary)';
+  calcFare();
+};
+
+window.swapLoc = function() {
+  const tmp = pts.from;
+  pts.from = pts.to;
+  pts.to = tmp;
+  document.getElementById('inFrom').value = pts.from?.addr || '';
+  document.getElementById('inTo').value = pts.to?.addr || '';
+  calcFare();
+  toast('🔄 Lokasi ditukar!');
+};
+
+// ========== FUNGSI CARGO ==========
+let cargoJarak = 0;
+let cargoUkuran = { name: 'Kecil (<2 kg)', multiplier: 1.0, weightMin: 0, weightMax: 2 };
+let cargoBerat = 1;
+let cargoKendaraan = { name: 'Motor', rate: 3000, minFare: 5000 };
+let cargoPriorityFee = 0;
+
+window.pickCargoVehicle = function(el) {
+  document.querySelectorAll('#cargoVehicles .opt').forEach(x => x.classList.remove('on'));
+  el.classList.add('on');
+  cargoKendaraan = {
+    name: el.querySelector('.opt-name').textContent,
+    rate: parseInt(el.dataset.rate) || 3000,
+    minFare: parseInt(el.dataset.min) || 5000
+  };
+  document.getElementById('cargoKendaraanLabel').textContent = cargoKendaraan.name;
+  updateCargoTotal();
+};
+
+window.pilihUkuranBarang = function(el) {
+  document.querySelectorAll('#cargoSizeChips .schip').forEach(x => x.classList.remove('on'));
+  el.classList.add('on');
+  cargoUkuran = {
+    name: el.textContent,
+    multiplier: parseFloat(el.dataset.multiplier) || 1.0,
+    weightMin: parseFloat(el.dataset.weightMin) || 0,
+    weightMax: parseFloat(el.dataset.weightMax) || 2
+  };
+  document.getElementById('cargoUkuranLabel').textContent = cargoUkuran.name;
+  updateCargoTotal();
+};
+
+window.pickPriorityCargo = function(el) {
+  document.querySelectorAll('#cargoPriorityOptions [data-priority], .priority-option-cargo').forEach(x => {
+    x.classList.remove('active-cargo-priority');
+    x.style.background = 'rgba(255,255,255,.05)';
+    x.style.borderColor = 'rgba(255,255,255,.08)';
+  });
+  el.classList.add('active-cargo-priority');
+  el.style.background = 'rgba(255,77,77,.15)';
+  el.style.borderColor = 'var(--primary)';
+  cargoPriorityFee = parseInt(el.dataset.priority) || 0;
+  updateCargoTotal();
+};
+
+function updateCargoTotal() {
+  let jarakKm = 0;
+  if (pts.from && pts.to) {
+    jarakKm = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
+    cargoJarak = jarakKm;
+    document.getElementById('cargoJarak').textContent = jarakKm.toFixed(1) + ' km';
+  }
+
+  const beratInput = document.getElementById('cargoBerat');
+  cargoBerat = parseFloat(beratInput?.value) || 1;
+  document.getElementById('cargoBeratLabel').textContent = cargoBerat + ' kg';
+
+  let ongkirDasar = Math.round(jarakKm * cargoKendaraan.rate / 500) * 500;
+  if (ongkirDasar < cargoKendaraan.minFare) ongkirDasar = cargoKendaraan.minFare;
+
+  let ukuranMultiplier = cargoUkuran.multiplier;
+  let beratMultiplier = 1.0;
+  if (cargoBerat > cargoUkuran.weightMax) {
+    beratMultiplier = 1 + (cargoBerat - cargoUkuran.weightMax) * 0.1;
+    if (beratMultiplier > 3) beratMultiplier = 3;
+  }
+
+  let ongkir = Math.round(ongkirDasar * ukuranMultiplier * beratMultiplier);
+  let minOngkir = cargoKendaraan.minFare * ukuranMultiplier;
+  if (ongkir < minOngkir) ongkir = minOngkir;
+  ongkir = Math.ceil(ongkir / 1000) * 1000;
+
+  let priorityFee = cargoPriorityFee;
+  const total = ongkir + priorityFee;
+
+  document.getElementById('cargoOngkirDasar').textContent = 'Rp ' + ongkir.toLocaleString('id-ID');
+
+  if (priorityFee > 0) {
+    const priorityRow = document.getElementById('cargoPriorityRow');
+    const priorityVal = document.getElementById('cargoPriorityVal');
+    if (priorityRow) priorityRow.style.display = 'flex';
+    if (priorityVal) priorityVal.textContent = '+ Rp ' + priorityFee.toLocaleString('id-ID');
+  } else {
+    const priorityRow = document.getElementById('cargoPriorityRow');
+    if (priorityRow) priorityRow.style.display = 'none';
+  }
+
+  document.getElementById('cargoTotalPrice').textContent = 'Rp ' + total.toLocaleString('id-ID');
+  const btn = document.getElementById('btnOrderCargo');
+  if (btn) btn.innerHTML = `📦 Kirim Sekarang (Rp ${total.toLocaleString('id-ID')})`;
+}
 
 window.submitOrderBarang = async function() {
   const dari = document.getElementById('cargoFrom').value.trim();
@@ -769,44 +1608,39 @@ window.submitOrderBarang = async function() {
   const deskripsi = document.getElementById('cargoDeskripsi')?.value.trim() || '';
   const catatanPelanggan = document.getElementById('cargoCatatan')?.value.trim() || '';
   const berat = cargoBerat;
-  
-  if(!dari || !ke){ toast('⚠️ Lengkapi lokasi pengambilan dan tujuan!'); return; }
-  // if(!pts.from || !pts.to){
-//    toast('⚠️ Pilih lokasi dari peta terlebih dahulu!');
-//    return;
-// }
-  
+
+  if (!dari || !ke) {
+    toast('⚠️ Lengkapi lokasi pengambilan dan tujuan!');
+    return;
+  }
+
   const jarak = cargoJarak;
-  
-  // Hitung ongkir dengan formula yang sama
   let ongkirDasar = Math.round(jarak * cargoKendaraan.rate / 500) * 500;
   if (ongkirDasar < cargoKendaraan.minFare) ongkirDasar = cargoKendaraan.minFare;
-  
+
   let ukuranMultiplier = cargoUkuran.multiplier;
   let beratMultiplier = 1.0;
   if (berat > cargoUkuran.weightMax) {
     beratMultiplier = 1 + (berat - cargoUkuran.weightMax) * 0.1;
     if (beratMultiplier > 3) beratMultiplier = 3;
   }
-  
+
   let ongkir = Math.round(ongkirDasar * ukuranMultiplier * beratMultiplier);
   let minOngkir = cargoKendaraan.minFare * ukuranMultiplier;
   if (ongkir < minOngkir) ongkir = minOngkir;
   ongkir = Math.ceil(ongkir / 1000) * 1000;
-  
+
   const priorityFee = cargoPriorityFee;
   const total = ongkir + priorityFee;
-  
+
   const id = await submitOrder({
     tipe: 'barang',
     dari: dari,
     ke: ke,
-
     dariLat: pts.from ? pts.from.lat : null,
     dariLng: pts.from ? pts.from.lng : null,
     keLat: pts.to ? pts.to.lat : null,
     keLng: pts.to ? pts.to.lng : null,
-
     jarak: jarak.toFixed(1) + ' km',
     namaBarang: namaBarang,
     deskripsiBarang: deskripsi,
@@ -818,166 +1652,481 @@ window.submitOrderBarang = async function() {
     totalPembayaran: total,
     catatan: catatanPelanggan,
     status: 'menunggu_driver'
-}, 'btnOrderCargo', '📦 Kirim Sekarang');
-  
-  if(id) { bunyiSukses(); toast('✅ Mencari driver terdekat...'); }
+  }, 'btnOrderCargo', '📦 Kirim Sekarang');
+
+  if (id) {
+    bunyiSukses();
+    toast('✅ Mencari driver terdekat...');
+  }
 };
 
-window.pilihLayananLain = function(layanan) { selectedLayananLain = layanan; document.getElementById('titleFormLain').textContent = '✨ ' + layanan; const container = document.getElementById('dynamicLainFields'); container.innerHTML = `<div class="form-group"><label class="form-label">📝 Detail Layanan</label><textarea class="form-input" id="lainDetailUmum" rows="3" placeholder="Ceritakan detail kebutuhan Anda..."></textarea></div>`; closeSheet(); openSheet('formLain'); };
-window.submitOrderLain = async function() { const alamat=document.getElementById('lainAlamat').value.trim(); if(!alamat){toast('⚠️ Alamat wajib diisi!');return;} const detail = document.getElementById('lainDetailUmum')?.value || ''; const id=await submitOrder({ tipe:'lainnya', layanan:selectedLayananLain, alamat, detailData: detail, status:'menunggu_konfirmasi' },'btnOrderLain','✨ Pesan Sekarang'); if(id){bunyiSukses();toast('✅ Pesanan dikirim!');} };
+// ========== FUNGSI LAINNYA ==========
+window.pilihLayananLain = function(layanan) {
+  selectedLayananLain = layanan;
+  document.getElementById('titleFormLain').textContent = '✨ ' + layanan;
+  const container = document.getElementById('dynamicLainFields');
+  container.innerHTML = `<div class="form-group"><label class="form-label">📝 Detail Layanan</label><textarea class="form-input" id="lainDetailUmum" rows="3" placeholder="Ceritakan detail kebutuhan Anda..."></textarea></div>`;
+  closeSheet();
+  openSheet('formLain');
+};
 
-function calcFare() { const fb = document.getElementById('fareBox'); if(!pts.from||!pts.to){fb.style.display='none';return;} const d=haversine(pts.from.lat,pts.from.lng,pts.to.lat,pts.to.lng); const mins=Math.max(1,Math.round(d*3)); let price = Math.round(d * vehicleRate / 500) * 500; if (price < 3000) price = 3000; if (d < 0.2 && price > 4000) price = 4000; if (d < 0.5 && price > 6000) price = 6000; let priorityFee = 0; const activePriority = document.querySelector('#priorityOptions .active-priority'); if (activePriority) priorityFee = parseInt(activePriority.dataset.priority) || 0; const totalPrice = price + priorityFee; document.getElementById('fDist').textContent = d.toFixed(1) + ' km'; document.getElementById('fTime').textContent = mins + ' menit'; if (priorityFee > 0) { document.getElementById('fPrice').innerHTML = `<span style="font-size:.85rem">Rp ${price.toLocaleString('id-ID')}</span><span style="color:var(--primary);font-size:.7rem"> + Rp ${priorityFee.toLocaleString('id-ID')} (cepat)</span><br><span style="color:var(--accent);font-size:.85rem">Total: Rp ${totalPrice.toLocaleString('id-ID')}</span>`; } else { document.getElementById('fPrice').innerHTML = `Rp ${price.toLocaleString('id-ID')}`; } fb.style.display='block'; const btn = document.getElementById('btnOrderPass'); if (btn) btn.innerHTML = `📍 Pesan Sekarang (Rp ${totalPrice.toLocaleString('id-ID')})`; }
-function updateCargoTotal() {
-  // Ambil jarak dari pts (jika sudah ada)
-  let jarakKm = 0;
-  if (pts.from && pts.to) {
-    jarakKm = haversine(pts.from.lat, pts.from.lng, pts.to.lat, pts.to.lng);
-    cargoJarak = jarakKm;
-    document.getElementById('cargoJarak').textContent = jarakKm.toFixed(1) + ' km';
+window.submitOrderLain = async function() {
+  const alamat = document.getElementById('lainAlamat').value.trim();
+  if (!alamat) {
+    toast('⚠️ Alamat wajib diisi!');
+    return;
   }
-  
-  // Ambil berat dari input
-  const beratInput = document.getElementById('cargoBerat');
-  cargoBerat = parseFloat(beratInput?.value) || 1;
-  document.getElementById('cargoBeratLabel').textContent = cargoBerat + ' kg';
-  
-  // Hitung ongkir berdasarkan jarak
-  let ongkirDasar = Math.round(jarakKm * cargoKendaraan.rate / 500) * 500;
-  if (ongkirDasar < cargoKendaraan.minFare) ongkirDasar = cargoKendaraan.minFare;
-  
-  // Faktor pengali dari ukuran barang
-  let ukuranMultiplier = cargoUkuran.multiplier;
-  
-  // Faktor pengali dari berat (jika melebihi batas ukuran)
-  let beratMultiplier = 1.0;
-  if (cargoBerat > cargoUkuran.weightMax) {
-    beratMultiplier = 1 + (cargoBerat - cargoUkuran.weightMax) * 0.1;
-    if (beratMultiplier > 3) beratMultiplier = 3;
+  const detail = document.getElementById('lainDetailUmum')?.value || '';
+  const id = await submitOrder({
+    tipe: 'lainnya',
+    layanan: selectedLayananLain,
+    alamat,
+    detailData: detail,
+    status: 'menunggu_konfirmasi'
+  }, 'btnOrderLain', '✨ Pesan Sekarang');
+  if (id) {
+    bunyiSukses();
+    toast('✅ Pesanan dikirim!');
   }
-  
-  // Hitung ongkir akhir
-  let ongkir = Math.round(ongkirDasar * ukuranMultiplier * beratMultiplier);
-  
-  // Pastikan minimal ongkir
-  let minOngkir = cargoKendaraan.minFare * ukuranMultiplier;
-  if (ongkir < minOngkir) ongkir = minOngkir;
-  
-  // Pembulatan ke ribuan
-  ongkir = Math.ceil(ongkir / 1000) * 1000;
-  
-  // Priority fee
-  let priorityFee = cargoPriorityFee;
-  
-  const total = ongkir + priorityFee;
-  
-  // Update tampilan
-  document.getElementById('cargoOngkirDasar').textContent = 'Rp ' + ongkir.toLocaleString('id-ID');
-  
-  if (priorityFee > 0) {
-    const priorityRow = document.getElementById('cargoPriorityRow');
-    const priorityVal = document.getElementById('cargoPriorityVal');
-    if (priorityRow) priorityRow.style.display = 'flex';
-    if (priorityVal) priorityVal.textContent = '+ Rp ' + priorityFee.toLocaleString('id-ID');
-  } else {
-    const priorityRow = document.getElementById('cargoPriorityRow');
-    if (priorityRow) priorityRow.style.display = 'none';
+};
+
+window.useGPSForFood = function() {
+  if (!navigator.geolocation) {
+    toast('❌ GPS tidak didukung');
+    return;
   }
-  
-  document.getElementById('cargoTotalPrice').textContent = 'Rp ' + total.toLocaleString('id-ID');
-  
-  // Update tombol pesan
-  const btn = document.getElementById('btnOrderCargo');
-  if (btn) btn.innerHTML = `📦 Kirim Sekarang (Rp ${total.toLocaleString('id-ID')})`;
+  toast('📡 Mengambil lokasi...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    reverseGeo(lat, lng, addr => {
+      document.getElementById('foodAlamat').value = addr;
+      toast('✅ Lokasi berhasil diambil');
+    });
+  }, () => toast('❌ GPS gagal'), { enableHighAccuracy: true, timeout: 10000 });
+};
+
+window.useGPS = function(target) {
+  if (!navigator.geolocation) {
+    toast('❌ GPS tidak didukung');
+    return;
+  }
+  toast('📡 Mengambil lokasi...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    reverseGeo(lat, lng, addr => {
+      pts[target] = { lat, lng, addr };
+      document.getElementById(target === 'from' ? 'inFrom' : 'inTo').value = addr;
+      calcFare();
+      toast('✅ GPS berhasil');
+    });
+  }, () => toast('❌ GPS gagal'), { enableHighAccuracy: true, timeout: 12000 });
+};
+
+function haversine(a, b, c, d) {
+  const R = 6371,
+    dLat = (c - a) * Math.PI / 180,
+    dLng = (d - b) * Math.PI / 180;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a * Math.PI / 180) * Math.cos(c * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
-window.pickPriority = function(el) {
-  // Hapus class active dari semua
-  document.querySelectorAll('#priorityOptions [data-priority]').forEach(x => {
-    x.classList.remove('active-priority');
-    x.style.background = 'rgba(255,255,255,.05)';
-    x.style.borderColor = 'rgba(255,255,255,.08)';
-  });
-  // Tambah class active ke yang dipilih
-  el.classList.add('active-priority');
-  el.style.background = 'rgba(255,77,77,.15)';
-  el.style.borderColor = 'var(--primary)';
-  // Update total
-  calcFare();
-};
-window.pickPriorityCargo = function(el) {
-  document.querySelectorAll('#cargoPriorityOptions [data-priority], .priority-option-cargo').forEach(x => {
-    x.classList.remove('active-cargo-priority');
-    x.style.background = 'rgba(255,255,255,.05)';
-    x.style.borderColor = 'rgba(255,255,255,.08)';
-  });
-  el.classList.add('active-cargo-priority');
-  el.style.background = 'rgba(255,77,77,.15)';
-  el.style.borderColor = 'var(--primary)';
-  
-  cargoPriorityFee = parseInt(el.dataset.priority) || 0;
-  updateCargoTotal();
-};
-window.pickVehicle = function(el){ document.querySelectorAll('#sheetPass .opt').forEach(x=>x.classList.remove('on')); el.classList.add('on'); vehicleRate=parseInt(el.dataset.rate); vehicleName=el.querySelector('.opt-name').textContent; vehicleCode = vehicleName === 'Motor' ? 'motor' : vehicleName === 'Motor Listrik' ? 'motor_listrik' : vehicleName === 'Mobil Reguler' ? 'mobil' : 'mobil_xl'; calcFare(); };
-window.pickCargoVehicle = function(el) {
-  document.querySelectorAll('#cargoVehicles .opt').forEach(x => x.classList.remove('on'));
-  el.classList.add('on');
-  
-  cargoKendaraan = {
-    name: el.querySelector('.opt-name').textContent,
-    rate: parseInt(el.dataset.rate) || 3000,
-    minFare: parseInt(el.dataset.min) || 5000
+
+async function reverseGeo(lat, lng, cb) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id`);
+    const d = await r.json();
+    cb(d.display_name ? d.display_name.split(',').slice(0, 3).join(', ') : `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+  } catch {
+    cb(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+  }
+}
+
+// ========== FUNGSI MAP PICKER ==========
+let lmap = null,
+  mapTarget = 'from',
+  moveTimer = null;
+
+window.openMap = function(target) {
+  mapTarget = target;
+  const titles = {
+    from: '📍 Pilih Lokasi Jemput',
+    to: '🏁 Pilih Lokasi Tujuan',
+    cargoFrom: '📍 Alamat Pengambilan',
+    cargoTo: '🏁 Alamat Tujuan',
+    lainAlamat: '📍 Pilih Lokasi',
+    foodAlamat: '📍 Pilih Alamat Pengiriman'
   };
-  
-  document.getElementById('cargoKendaraanLabel').textContent = cargoKendaraan.name;
-  updateCargoTotal();
+  document.getElementById('mapTitle').textContent = titles[target] || 'Pilih Lokasi';
+  document.getElementById('mapScreen').classList.add('on');
+  setTimeout(() => {
+    if (!lmap) {
+      const TONDO_SW = L.latLng(-0.8700, 119.8700),
+        TONDO_NE = L.latLng(-0.8050, 119.9300);
+      const TONDO_BOUNDS = L.latLngBounds(TONDO_SW, TONDO_NE);
+      lmap = L.map('mapEl', {
+        zoomControl: false,
+        attributionControl: false,
+        maxBounds: TONDO_BOUNDS,
+        maxBoundsViscosity: 0.85,
+        minZoom: 13
+      }).setView([-0.8365, 119.8927], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(lmap);
+      L.control.zoom({ position: 'topright' }).addTo(lmap);
+      L.rectangle(TONDO_BOUNDS, { color: '#FF4D4D', weight: 2, fill: false, dashArray: '8,6', opacity: .5 }).addTo(lmap);
+      L.marker([-0.8365, 119.9100], {
+        icon: L.divIcon({
+          html: '<div style="background:rgba(255,77,77,.15);border:1px solid rgba(255,77,77,.3);border-radius:8px;padding:4px 8px;font-size:.65rem;font-weight:700;color:#FF4D4D;white-space:nowrap">📍 Area Tondo</div>',
+          className: '',
+          iconAnchor: [40, 12]
+        })
+      }).addTo(lmap);
+      L.polygon([
+        [
+          [-90, -180],
+          [-90, 180],
+          [90, 180],
+          [90, -180]
+        ],
+        [
+          [-0.8700, 119.8700],
+          [-0.8050, 119.8700],
+          [-0.8050, 119.9300],
+          [-0.8700, 119.9300]
+        ]
+      ], { stroke: false, fillColor: '#000', fillOpacity: .35, fillRule: 'evenodd' }).addTo(lmap);
+      lmap.on('moveend', () => {
+        clearTimeout(moveTimer);
+        moveTimer = setTimeout(() => {
+          const c = lmap.getCenter();
+          reverseGeo(c.lat, c.lng, a => document.getElementById('mapAddrText').textContent = a);
+        }, 450);
+      });
+      reverseGeo(-0.8365, 119.8927, a => document.getElementById('mapAddrText').textContent = a);
+    } else lmap.invalidateSize();
+  }, 80);
 };
-window.pilihUkuranBarang = function(el) {
-  document.querySelectorAll('#cargoSizeChips .schip').forEach(x => x.classList.remove('on'));
-  el.classList.add('on');
-  
-  cargoUkuran = {
-    name: el.textContent,
-    multiplier: parseFloat(el.dataset.multiplier) || 1.0,
-    weightMin: parseFloat(el.dataset.weightMin) || 0,
-    weightMax: parseFloat(el.dataset.weightMax) || 2
-  };
-  
-  document.getElementById('cargoUkuranLabel').textContent = cargoUkuran.name;
-  updateCargoTotal();
+
+window.closeMap = function() {
+  document.getElementById('mapScreen').classList.remove('on');
 };
-window.swapLoc=function(){const tmp=pts.from;pts.from=pts.to;pts.to=tmp;document.getElementById('inFrom').value=pts.from?.addr||'';document.getElementById('inTo').value=pts.to?.addr||'';calcFare();toast('🔄 Lokasi ditukar!');};
-function haversine(a,b,c,d){const R=6371,dLat=(c-a)*Math.PI/180,dLng=(d-b)*Math.PI/180;const x=Math.sin(dLat/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 
-window.useGPS=function(target){ if(!navigator.geolocation){toast('❌ GPS tidak didukung');return;} toast('📡 Mengambil lokasi...'); navigator.geolocation.getCurrentPosition(pos=>{ const{latitude:lat,longitude:lng}=pos.coords; reverseGeo(lat,lng,addr=>{ pts[target]={lat,lng,addr}; document.getElementById(target==='from'?'inFrom':'inTo').value=addr; calcFare();toast('✅ GPS berhasil'); }); },()=>toast('❌ GPS gagal'),{enableHighAccuracy:true,timeout:12000}); };
-async function reverseGeo(lat,lng,cb){ try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id`);const d=await r.json();cb(d.display_name?d.display_name.split(',').slice(0,3).join(', '):`${lat.toFixed(5)}, ${lng.toFixed(5)}`);} catch{cb(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);} }
+window.confirmMap = function() {
+  const addr = document.getElementById('mapAddrText').textContent;
+  if (addr.includes('Geser peta')) {
+    toast('⏳ Tunggu sebentar...');
+    return;
+  }
+  const c = lmap.getCenter();
+  const inTondo = c.lat >= -0.8700 && c.lat <= -0.8050 && c.lng >= 119.8700 && c.lng <= 119.9300;
+  if (!inTondo) {
+    toast('❌ Lokasi di luar area layanan Tondo!');
+    return;
+  }
+  if (mapTarget === 'cargoFrom') document.getElementById('cargoFrom').value = addr;
+  else if (mapTarget === 'cargoTo') document.getElementById('cargoTo').value = addr;
+  else if (mapTarget === 'lainAlamat') document.getElementById('lainAlamat').value = addr;
+  else if (mapTarget === 'foodAlamat') document.getElementById('foodAlamat').value = addr;
+  else {
+    pts[mapTarget] = { lat: c.lat, lng: c.lng, addr };
+    document.getElementById(mapTarget === 'from' ? 'inFrom' : 'inTo').value = addr;
+    calcFare();
+  }
+  closeMap();
+  toast('✅ Lokasi dipilih!');
+};
 
-let lmap=null,mapTarget='from',moveTimer=null;
-window.openMap=function(target){ mapTarget=target; const titles={from:'📍 Pilih Lokasi Jemput',to:'🏁 Pilih Lokasi Tujuan',cargoFrom:'📍 Alamat Pengambilan',cargoTo:'🏁 Alamat Tujuan',lainAlamat:'📍 Pilih Lokasi',foodAlamat:'📍 Pilih Alamat Pengiriman'}; document.getElementById('mapTitle').textContent=titles[target]||'Pilih Lokasi'; document.getElementById('mapScreen').classList.add('on'); setTimeout(()=>{ if(!lmap){ const TONDO_SW=L.latLng(-0.8700,119.8700), TONDO_NE=L.latLng(-0.8050,119.9300); const TONDO_BOUNDS=L.latLngBounds(TONDO_SW,TONDO_NE); lmap=L.map('mapEl',{zoomControl:false,attributionControl:false,maxBounds:TONDO_BOUNDS,maxBoundsViscosity:0.85,minZoom:13}).setView([-0.8365,119.8927],14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(lmap); L.control.zoom({position:'topright'}).addTo(lmap); L.rectangle(TONDO_BOUNDS,{color:'#FF4D4D',weight:2,fill:false,dashArray:'8,6',opacity:.5}).addTo(lmap); L.marker([-0.8365,119.9100],{icon:L.divIcon({html:'<div style="background:rgba(255,77,77,.15);border:1px solid rgba(255,77,77,.3);border-radius:8px;padding:4px 8px;font-size:.65rem;font-weight:700;color:#FF4D4D;white-space:nowrap">📍 Area Tondo</div>',className:'',iconAnchor:[40,12]})}).addTo(lmap); L.polygon([[[-90,-180],[-90,180],[90,180],[90,-180]],[[-0.8700,119.8700],[-0.8050,119.8700],[-0.8050,119.9300],[-0.8700,119.9300]]],{stroke:false,fillColor:'#000',fillOpacity:.35,fillRule:'evenodd'}).addTo(lmap); lmap.on('moveend',()=>{clearTimeout(moveTimer);moveTimer=setTimeout(()=>{const c=lmap.getCenter();reverseGeo(c.lat,c.lng,a=>document.getElementById('mapAddrText').textContent=a);},450);}); reverseGeo(-0.8365,119.8927,a=>document.getElementById('mapAddrText').textContent=a); } else lmap.invalidateSize(); },80); };
-window.closeMap=function(){document.getElementById('mapScreen').classList.remove('on');};
-window.confirmMap=function(){ const addr=document.getElementById('mapAddrText').textContent; if(addr.includes('Geser peta')){toast('⏳ Tunggu sebentar...');return;} const c=lmap.getCenter(); const inTondo=c.lat>=-0.8700&&c.lat<=-0.8050&&c.lng>=119.8700&&c.lng<=119.9300; if(!inTondo){toast('❌ Lokasi di luar area layanan Tondo!');return;} if(mapTarget==='cargoFrom')document.getElementById('cargoFrom').value=addr; else if(mapTarget==='cargoTo')document.getElementById('cargoTo').value=addr; else if(mapTarget==='lainAlamat')document.getElementById('lainAlamat').value=addr; else if(mapTarget==='foodAlamat')document.getElementById('foodAlamat').value=addr; else{pts[mapTarget]={lat:c.lat,lng:c.lng,addr};document.getElementById(mapTarget==='from'?'inFrom':'inTo').value=addr;calcFare();} closeMap();toast('✅ Lokasi dipilih!'); };
-window.flyToMyGPS=function(){if(!navigator.geolocation){toast('❌ GPS tidak tersedia');return;}navigator.geolocation.getCurrentPosition(p=>{lmap.flyTo([p.coords.latitude,p.coords.longitude],16,{duration:1.2});toast('📍 Ditemukan!');},()=>toast('❌ GPS ditolak'),{timeout:6000,enableHighAccuracy:true});};
-window.searchSuggestions=async function(){const q=document.getElementById('mapSearchInput').value.trim();const box=document.getElementById('searchSuggestions');if(q.length<2){box.innerHTML='';return;}try{const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q+' Tondo Palu')}&limit=5`);const data=await res.json();box.innerHTML=data.map(item=>`<div class="suggest-item" onclick="selectSuggestion(${item.lat},${item.lon})">${item.display_name}</div>`).join('');}catch{}};
-window.selectSuggestion=function(lat,lng){lmap.setView([lat,lng],16);document.getElementById('searchSuggestions').innerHTML='';toast('📍 Lokasi dipilih');};
+window.flyToMyGPS = function() {
+  if (!navigator.geolocation) {
+    toast('❌ GPS tidak tersedia');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(p => {
+    lmap.flyTo([p.coords.latitude, p.coords.longitude], 16, { duration: 1.2 });
+    toast('📍 Ditemukan!');
+  }, () => toast('❌ GPS ditolak'), { timeout: 6000, enableHighAccuracy: true });
+};
 
-window.openChatFromOrder=function(){ if(!activeOrderId||!activeOrderData){toast('Tidak ada pesanan aktif');return;} if(activeOrderData.driverId)openChatWithDriver(activeOrderData.driverId,activeOrderData.driverNama||'Driver'); else if(activeOrderData.resto)openChatWithResto(activeOrderData.resto,activeOrderData.resto); else toast('Driver/Resto belum ditemukan'); };
-window.openChatWithDriver=function(driverId,driverNama){openChatPanel('driver_'+driverId+'_order_'+activeOrderId,'🏍️ '+(driverNama||'Driver'),'Pelanggan ↔ Driver');};
-window.openChatWithResto=function(restoId,restoNama){openChatPanel('pelanggan_'+currentUser?.uid+'_resto_'+restoId+'_'+activeOrderId,'🍔 '+(restoNama||'Resto'),'Pelanggan ↔ Resto');};
-window.openChatList=function(){if(activeOrderId&&activeOrderData?.driverId)openChatWithDriver(activeOrderData.driverId,activeOrderData.driverNama);else toast('Pesan dulu untuk bisa chat');};
+window.searchSuggestions = async function() {
+  const q = document.getElementById('mapSearchInput').value.trim();
+  const box = document.getElementById('searchSuggestions');
+  if (q.length < 2) {
+    box.innerHTML = '';
+    return;
+  }
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ' Tondo Palu')}&limit=5`);
+    const data = await res.json();
+    box.innerHTML = data.map(item => `<div class="suggest-item" onclick="selectSuggestion(${item.lat},${item.lon})">${item.display_name}</div>`).join('');
+  } catch {}
+};
 
-function openChatPanel(roomId,name,sub){ currentChatRoom=roomId; document.getElementById('chatAvatar').textContent=name.includes('Driver')||name.includes('🏍️')?'🏍️':'🍔'; document.getElementById('chatName').textContent=name; document.getElementById('chatOverlay').classList.add('on'); document.getElementById('chatPanel').classList.add('on'); updateChatBadge(roomId, false); if(chatListenerRef)off(chatListenerRef); set(ref(db,'chats/'+roomId+'/label'),name).catch(()=>{}); chatListenerRef=ref(db,'chats/'+roomId+'/messages'); let firstLoad=true; onValue(chatListenerRef,snap=>{ const msgs=snap.val()||{}; const prevCount=document.getElementById('chatMessages').children.length; renderChatMessages(msgs); if(!firstLoad && Object.keys(msgs).length > prevCount){bunyiChat();} firstLoad=false; Object.entries(msgs).forEach(([mid,msg])=>{ if(msg.sender!=='pelanggan' && !msg.read) update(ref(db,'chats/'+roomId+'/messages/'+mid),{read:true,readAt:Date.now()}); }); }); }
-function renderChatMessages(msgs){ const c=document.getElementById('chatMessages'); const entries=Object.entries(msgs).sort((a,b)=>(a[1].ts||0)-(b[1].ts||0)); c.innerHTML=entries.map(([,m])=>{ const isMe=m.sender==='pelanggan'; const statusIcon = m.read ? '✓✓' : (m.delivered ? '✓' : '✓'); if(m.type==='location') return `<div class="chat-msg ${isMe?'me':'them'}"><div class="chat-loc-msg" onclick="window.open('https://maps.google.com?q=${m.lat},${m.lng}','_blank')">📍 Lokasi dikirim — Tap buka maps</div><div class="chat-msg-time">${m.timeStr||''} ${isMe?`<span style="font-size:.55rem;margin-left:4px">${statusIcon}</span>`:''}</div></div>`; const isNew=(Date.now()-(m.ts||0))<5000; return `<div class="chat-msg ${isMe?'me':'them'}${isNew&&!isMe?' new-msg':''}">${m.text}<div class="chat-msg-time">${m.timeStr||''} ${isMe?`<span style="font-size:.55rem;margin-left:4px">${statusIcon}</span>`:''}</div></div>`; }).join(''); c.scrollTop=c.scrollHeight; }
-window.sendChat=async function(){const input=document.getElementById('chatInput');const text=input.value.trim();if(!text||!currentChatRoom||!currentUser)return;input.value='';await push(ref(db,'chats/'+currentChatRoom+'/messages'),{text,sender:'pelanggan',pelangganId:currentUser.uid,ts:Date.now(),timeStr:nowStr()});};
-window.sendQuick=function(t){document.getElementById('chatInput').value=t;sendChat();};
-window.sendMyLocation=function(){if(!navigator.geolocation){toast('GPS tidak tersedia');return;}navigator.geolocation.getCurrentPosition(async pos=>{const{latitude:lat,longitude:lng}=pos.coords;await push(ref(db,'chats/'+currentChatRoom+'/messages'),{type:'location',lat,lng,sender:'pelanggan',pelangganId:currentUser?.uid,ts:Date.now(),timeStr:nowStr()});toast('📍 Lokasi terkirim');},()=>toast('❌ GPS gagal'));};
-window.closeChat=function(){document.getElementById('chatOverlay').classList.remove('on');document.getElementById('chatPanel').classList.remove('on');if(chatListenerRef){off(chatListenerRef);chatListenerRef=null;}currentChatRoom=null;};
+window.selectSuggestion = function(lat, lng) {
+  lmap.setView([lat, lng], 16);
+  document.getElementById('searchSuggestions').innerHTML = '';
+  toast('📍 Lokasi dipilih');
+};
 
-function bunyiOrder(){ try{ const ctx=new AudioContext(); [[0,880,.5],[150,1046,.5],[300,880,.5],[450,1046,.5],[600,1318,.6]].forEach(([delay,freq,vol])=>{ const osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type='sine';osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime+delay/1000); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay/1000+.35); osc.start(ctx.currentTime+delay/1000);osc.stop(ctx.currentTime+delay/1000+.35); }); } catch(e){} }
-function bunyiSukses(){ try{ const ctx=new AudioContext(); [520,660,880,1046].forEach((freq,i)=>{ const osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.frequency.value=freq; gain.gain.setValueAtTime(.3,ctx.currentTime+i*.12); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+i*.12+.22); osc.start(ctx.currentTime+i*.12);osc.stop(ctx.currentTime+i*.12+.22); }); } catch(e){} }
-function bunyiChat(){ try{ const ctx=new AudioContext(); [[0,800,.22],[100,1000,.18]].forEach(([delay,freq,vol])=>{ const osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type='sine';osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime+delay/1000); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay/1000+.15); osc.start(ctx.currentTime+delay/1000);osc.stop(ctx.currentTime+delay/1000+.15); }); } catch(e){} }
+// ========== FUNGSI CHAT ==========
+window.openChatFromOrder = function() {
+  if (!activeOrderId || !activeOrderData) {
+    toast('Tidak ada pesanan aktif');
+    return;
+  }
+  if (activeOrderData.driverId) openChatWithDriver(activeOrderData.driverId, activeOrderData.driverNama || 'Driver');
+  else if (activeOrderData.resto) openChatWithResto(activeOrderData.resto, activeOrderData.resto);
+  else toast('Driver/Resto belum ditemukan');
+};
 
+window.openChatWithDriver = function(driverId, driverNama) {
+  openChatPanel('driver_' + driverId + '_order_' + activeOrderId, '🏍️ ' + (driverNama || 'Driver'), 'Pelanggan ↔ Driver');
+};
+
+window.openChatWithResto = function(restoId, restoNama) {
+  openChatPanel('pelanggan_' + currentUser?.uid + '_resto_' + restoId + '_' + activeOrderId, '🍔 ' + (restoNama || 'Resto'), 'Pelanggan ↔ Resto');
+};
+
+window.openChatList = function() {
+  if (activeOrderId && activeOrderData?.driverId) openChatWithDriver(activeOrderData.driverId, activeOrderData.driverNama);
+  else toast('Pesan dulu untuk bisa chat');
+};
+
+function openChatPanel(roomId, name, sub) {
+  currentChatRoom = roomId;
+  document.getElementById('chatAvatar').textContent = name.includes('Driver') || name.includes('🏍️') ? '🏍️' : '🍔';
+  document.getElementById('chatName').textContent = name;
+  document.getElementById('chatOverlay').classList.add('on');
+  document.getElementById('chatPanel').classList.add('on');
+  updateChatBadge(roomId, false);
+  if (chatListenerRef) off(chatListenerRef);
+  set(ref(db, 'chats/' + roomId + '/label'), name).catch(() => {});
+  chatListenerRef = ref(db, 'chats/' + roomId + '/messages');
+  let firstLoad = true;
+  onValue(chatListenerRef, snap => {
+    const msgs = snap.val() || {};
+    const prevCount = document.getElementById('chatMessages').children.length;
+    renderChatMessages(msgs);
+    if (!firstLoad && Object.keys(msgs).length > prevCount) {
+      bunyiChat();
+    }
+    firstLoad = false;
+    Object.entries(msgs).forEach(([mid, msg]) => {
+      if (msg.sender !== 'pelanggan' && !msg.read) update(ref(db, 'chats/' + roomId + '/messages/' + mid), { read: true, readAt: Date.now() });
+    });
+  });
+}
+
+function renderChatMessages(msgs) {
+  const c = document.getElementById('chatMessages');
+  const entries = Object.entries(msgs).sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
+  c.innerHTML = entries.map(([, m]) => {
+    const isMe = m.sender === 'pelanggan';
+    const statusIcon = m.read ? '✓✓' : (m.delivered ? '✓' : '✓');
+    if (m.type === 'location') return `<div class="chat-msg ${isMe ? 'me' : 'them'}"><div class="chat-loc-msg" onclick="window.open('https://maps.google.com?q=${m.lat},${m.lng}','_blank')">📍 Lokasi dikirim — Tap buka maps</div><div class="chat-msg-time">${m.timeStr || ''} ${isMe ? `<span style="font-size:.55rem;margin-left:4px">${statusIcon}</span>` : ''}</div></div>`;
+    const isNew = (Date.now() - (m.ts || 0)) < 5000;
+    return `<div class="chat-msg ${isMe ? 'me' : 'them'}${isNew && !isMe ? ' new-msg' : ''}">${m.text}<div class="chat-msg-time">${m.timeStr || ''} ${isMe ? `<span style="font-size:.55rem;margin-left:4px">${statusIcon}</span>` : ''}</div></div>`;
+  }).join('');
+  c.scrollTop = c.scrollHeight;
+}
+
+window.sendChat = async function() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !currentChatRoom || !currentUser) return;
+  input.value = '';
+  await push(ref(db, 'chats/' + currentChatRoom + '/messages'), {
+    text,
+    sender: 'pelanggan',
+    pelangganId: currentUser.uid,
+    ts: Date.now(),
+    timeStr: nowStr()
+  });
+};
+
+window.sendQuick = function(t) {
+  document.getElementById('chatInput').value = t;
+  sendChat();
+};
+
+window.sendMyLocation = function() {
+  if (!navigator.geolocation) {
+    toast('GPS tidak tersedia');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    await push(ref(db, 'chats/' + currentChatRoom + '/messages'), {
+      type: 'location',
+      lat,
+      lng,
+      sender: 'pelanggan',
+      pelangganId: currentUser?.uid,
+      ts: Date.now(),
+      timeStr: nowStr()
+    });
+    toast('📍 Lokasi terkirim');
+  }, () => toast('❌ GPS gagal'));
+};
+
+window.closeChat = function() {
+  document.getElementById('chatOverlay').classList.remove('on');
+  document.getElementById('chatPanel').classList.remove('on');
+  if (chatListenerRef) {
+    off(chatListenerRef);
+    chatListenerRef = null;
+  }
+  currentChatRoom = null;
+};
+
+function listenChatUnread() {
+  const chatRef = ref(db, 'chats');
+  onValue(chatRef, snap => {
+    const chats = snap.val() || {};
+    Object.entries(chats).forEach(([roomId, room]) => {
+      const messages = room.messages || {};
+      const entries = Object.entries(messages).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
+      const lastMsg = entries[0]?.[1];
+      if (lastMsg && lastMsg.sender !== 'pelanggan' && !lastMsg.read && currentChatRoom !== roomId) {
+        updateChatBadge(roomId, true);
+        bunyiChat();
+      }
+    });
+  });
+}
+
+// ========== FUNGSI SUARA ==========
+function bunyiOrder() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[0, 880, .5], [150, 1046, .5], [300, 880, .5], [450, 1046, .5], [600, 1318, .6]].forEach(([delay, freq, vol]) => {
+      const osc = ctx.createOscillator(),
+        gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime + delay / 1000);
+      gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + delay / 1000 + .35);
+      osc.start(ctx.currentTime + delay / 1000);
+      osc.stop(ctx.currentTime + delay / 1000 + .35);
+    });
+  } catch (e) {}
+}
+
+function bunyiSukses() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [520, 660, 880, 1046].forEach((freq, i) => {
+      const osc = ctx.createOscillator(),
+        gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(.3, ctx.currentTime + i * .12);
+      gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + i * .12 + .22);
+      osc.start(ctx.currentTime + i * .12);
+      osc.stop(ctx.currentTime + i * .12 + .22);
+    });
+  } catch (e) {}
+}
+
+function bunyiChat() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[0, 800, .22], [100, 1000, .18]].forEach(([delay, freq, vol]) => {
+      const osc = ctx.createOscillator(),
+        gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime + delay / 1000);
+      gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + delay / 1000 + .15);
+      osc.start(ctx.currentTime + delay / 1000);
+      osc.stop(ctx.currentTime + delay / 1000 + .15);
+    });
+  } catch (e) {}
+}
+
+// ========== FUNGSI TOAST ==========
 let _tt;
-window.toast=function(msg){clearTimeout(_tt);document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);_tt=setTimeout(()=>{if(t.parentNode)t.remove();},2800);};
+window.toast = function(msg) {
+  clearTimeout(_tt);
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  _tt = setTimeout(() => {
+    if (t.parentNode) t.remove();
+  }, 2800);
+};
+
+// ========== FILTER RESTO ==========
+let currentCat = 'semua';
+
+window.filterCat = function(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.cat').forEach(x => x.classList.remove('on'));
+  el.classList.add('on');
+  filterResto();
+};
+
+window.filterResto = function() {
+  const q = document.getElementById('searchResto').value.toLowerCase();
+  document.querySelectorAll('#restoList .rcard').forEach(c => {
+    const n = c.querySelector('.rcard-name').textContent.toLowerCase();
+    c.style.display = (currentCat === 'semua' || c.dataset.cat === currentCat) && n.includes(q) ? 'flex' : 'none';
+  });
+};
+
+// ========== ON AUTH STATE CHANGED ==========
+onAuthStateChanged(auth, async user => {
+  if (user && user.emailVerified) {
+    const userSnap = await get(ref(db, 'users/' + user.uid));
+    if (!userSnap.exists()) {
+      await set(ref(db, 'users/' + user.uid), { role: 'customer', email: user.email, createdAt: Date.now() });
+    } else if (userSnap.val().role !== 'customer') {
+      if (userSnap.val().role === 'driver') window.location.href = 'driver.html';
+      else if (userSnap.val().role === 'resto') window.location.href = 'resto.html';
+      else if (userSnap.val().role === 'admin') window.location.href = 'admin.html';
+      else window.location.href = 'index.html';
+      return;
+    }
+    currentUser = user;
+    document.getElementById('loginScreen').style.display = 'none';
+    const snap = await get(ref(db, 'pelanggan/' + user.uid));
+    if (!snap.exists()) {
+      const tempNama = sessionStorage.getItem('tempNama') || user.email?.split('@')[0] || 'Pelanggan';
+      const tempWA = sessionStorage.getItem('tempWA') || '';
+      await set(ref(db, 'pelanggan/' + user.uid), { nama: tempNama, email: user.email, noWA: tempWA, uid: user.uid, createdAt: Date.now() });
+      sessionStorage.removeItem('tempNama');
+      sessionStorage.removeItem('tempWA');
+    }
+    const data = snap.val();
+    document.getElementById('userPill').textContent = '👤 ' + (data?.nama || 'Saya');
+    loadRestos();
+    resumeActiveOrder();
+    listenChatUnread();
+
+    // ========== PANGGIL FCM ==========
+    setTimeout(() => {
+      initCustomerFCM();
+    }, 2000);
+
+  } else if (user && !user.emailVerified) {
+    document.getElementById('verifyEmailDisplay').textContent = user.email || '';
+    showStep('step3');
+  } else {
+    currentUser = null;
+    document.getElementById('loginScreen').style.display = 'flex';
+    showStep('step1');
+  }
+});
 </script>
-<script>if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js').catch(()=>{});</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+}
+</script>
 
 <script>
 (() => {
