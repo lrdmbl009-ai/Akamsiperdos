@@ -632,13 +632,17 @@ async function initCustomerFCM() {
         new Notification(payload.notification?.title || "AKAMSI", {
           body: payload.notification?.body || "Update pesanan Anda",
           icon: "./customer-192.png",
-          badge: "./customer-192.png"
+          badge: "./customer-192.png",
+          vibrate: [200, 100, 200]
         });
       }
       if (activeOrderId && payload.data?.orderId === activeOrderId) {
         get(ref(db, 'orders/' + activeOrderId)).then(snap => {
           if (snap.exists()) updateOrderStatusUI(snap.val(), activeOrderId);
         });
+      }
+      if (payload.notification?.body && typeof toast === 'function') {
+        toast("🔔 " + payload.notification.body);
       }
     });
 
@@ -1872,16 +1876,18 @@ window.openChatFromOrder = function() {
     return;
   }
   if (activeOrderData.driverId) openChatWithDriver(activeOrderData.driverId, activeOrderData.driverNama || 'Driver');
-  else if (activeOrderData.resto) openChatWithResto(activeOrderData.resto, activeOrderData.resto);
+  else if (activeOrderData.resto) openChatWithResto(activeOrderData.resto, activeOrderData.restoNama || activeOrderData.resto);
   else toast('Driver/Resto belum ditemukan');
 };
 
 window.openChatWithDriver = function(driverId, driverNama) {
-  openChatPanel('driver_' + driverId + '_order_' + activeOrderId, '🏍️ ' + (driverNama || 'Driver'), 'Pelanggan ↔ Driver');
+  const roomId = 'driver_' + driverId + '_order_' + activeOrderId;
+  openChatPanel(roomId, '🏍️ ' + (driverNama || 'Driver'), 'Pelanggan ↔ Driver');
 };
 
 window.openChatWithResto = function(restoId, restoNama) {
-  openChatPanel('pelanggan_' + currentUser?.uid + '_resto_' + restoId + '_' + activeOrderId, '🍔 ' + (restoNama || 'Resto'), 'Pelanggan ↔ Resto');
+  const roomId = 'pelanggan_' + currentUser?.uid + '_resto_' + restoId + '_' + activeOrderId;
+  openChatPanel(roomId, '🍔 ' + (restoNama || 'Resto'), 'Pelanggan ↔ Resto');
 };
 
 window.openChatList = function() {

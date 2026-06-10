@@ -118,6 +118,7 @@ main{padding:14px 14px 90px;}
 .ao-btn{padding:11px;border-radius:11px;border:none;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;}
 .ao-btn.nav{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.12);}
 .ao-btn.chat{background:rgba(78,205,196,.15);color:var(--passenger);border:1px solid rgba(78,205,196,.3);}
+.ao-btn.chat-resto{background:rgba(255,195,0,.15);color:var(--secondary);border:1px solid rgba(255,195,0,.3);}
 .ao-btn.wa{background:rgba(37,211,102,.15);color:#25D366;border:1px solid rgba(37,211,102,.3);}
 .ao-btn.admin{background:rgba(255,195,0,.12);color:var(--secondary);border:1px solid rgba(255,195,0,.25);}
 .ao-btn.pickup{background:linear-gradient(135deg,#FFC300,#FF8C00);color:#fff;}
@@ -259,6 +260,7 @@ main{padding:14px 14px 90px;}
     <div class="ao-actions">
       <button class="ao-btn nav" onclick="bukaNavigasi()">🗺️ Navigasi</button>
       <button class="ao-btn chat" onclick="openChatWithPelanggan()">💬 Chat</button>
+      <button class="ao-btn chat-resto" onclick="openChatWithResto()">🍔 Chat Resto</button>
       <button class="ao-btn wa" onclick="hubungiPelangganWA()">📱 WhatsApp</button>
       <button class="ao-btn admin" onclick="openChatWithAdmin()">⚙️ Chat Admin</button>
       <button class="ao-btn pickup" id="btnPickup" onclick="updateStatusOrder('dijemput')">📍 Sudah Jemput</button>
@@ -1248,9 +1250,21 @@ window.openChatWithAdmin = function() {
   openChatPanel('admin_driver_' + driverData.uid, '⚙️ Admin', 'Driver ↔ Admin');
 };
 
+// ========== CHAT DENGAN RESTO ==========
+window.openChatWithResto = function() {
+  if (!activeOrderId || !activeOrderData) {
+    toast('Tidak ada order aktif');
+    return;
+  }
+  const restoId = activeOrderData.resto;
+  const restoNama = activeOrderData.restoNama || 'Resto';
+  const roomId = `driver_${driverData.uid}_resto_${restoId}_order_${activeOrderId}`;
+  openChatPanel(roomId, '🍔 ' + restoNama, 'Driver ↔ Resto · Order #' + activeOrderId.slice(-6).toUpperCase());
+};
+
 function openChatPanel(roomId, name, sub) {
   currentChatRoom = roomId;
-  document.getElementById('chatAvatar').textContent = name.includes('Admin') ? '⚙️' : '👤';
+  document.getElementById('chatAvatar').textContent = name.includes('Admin') ? '⚙️' : (name.includes('Resto') ? '🍔' : '👤');
   document.getElementById('chatName').textContent = name;
   document.getElementById('chatOverlay').classList.add('on');
   document.getElementById('chatPanel').classList.add('on');

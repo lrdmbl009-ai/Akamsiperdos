@@ -13,14 +13,26 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+function getIconByRole(role) {
+  switch(role) {
+    case 'driver': return './driver-192.png';
+    case 'resto': return './resto-192.png';
+    case 'admin': return './admin-192.png';
+    default: return './customer-192.png';
+  }
+}
+
 messaging.onBackgroundMessage((payload) => {
   console.log('[FCM Background] Pesan diterima:', payload);
+  
+  const role = payload.data?.role || 'customer';
+  const icon = getIconByRole(role);
   
   const notificationTitle = payload.notification?.title || "AKAMSI";
   const notificationOptions = {
     body: payload.notification?.body || "Ada update baru",
-    icon: "./customer-192.png",
-    badge: "./customer-192.png",
+    icon: icon,
+    badge: icon,
     vibrate: [200, 100, 200],
     data: payload.data || {},
     requireInteraction: true

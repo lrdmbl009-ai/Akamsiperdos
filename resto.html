@@ -50,7 +50,7 @@ header{background:linear-gradient(135deg,var(--dark2),var(--dark3));padding:12px
 .status-pill.buka{background:rgba(0,200,151,.15);color:var(--accent);border:1px solid rgba(0,200,151,.3);}
 .status-pill.tutup{background:rgba(255,77,77,.15);color:var(--primary);border:1px solid rgba(255,77,77,.3);}
 .btn-logout{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:.65rem;font-weight:700;padding:5px 10px;border-radius:20px;cursor:pointer;}
-main{padding:14px 14px 100px;}
+main{padding:14px 14px 80px;}
 
 /* ── RESTO CARD ── */
 .resto-card{background:linear-gradient(135deg,var(--dark2),#0f3460);border-radius:18px;padding:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.08);}
@@ -70,11 +70,6 @@ main{padding:14px 14px 100px;}
 .toggle-switch.on{background:var(--accent);}
 .toggle-knob{position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .3s;}
 .toggle-switch.on .toggle-knob{transform:translateX(25px);}
-
-/* ── TABS ── */
-.tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:14px;gap:3px;}
-.tab{flex:1;padding:8px 4px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s;}
-.tab.on{background:var(--dark2);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);}
 
 /* ── ORDER CARD ── */
 .order-card{background:var(--dark2);border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,.07);animation:slideUp .3s ease both;}
@@ -97,6 +92,7 @@ main{padding:14px 14px 100px;}
 .btn-tolak{padding:11px 13px;border-radius:11px;border:1px solid rgba(255,77,77,.3);background:rgba(255,77,77,.1);color:var(--primary);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;}
 .btn-siap{flex:1;padding:11px;border-radius:11px;border:none;background:linear-gradient(135deg,#FFC300,#FF8C00);color:#fff;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:800;cursor:pointer;}
 .btn-chat{padding:11px 13px;border-radius:11px;border:1px solid rgba(78,205,196,.3);background:rgba(78,205,196,.1);color:var(--passenger);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;}
+.btn-chat-admin{padding:11px 13px;border-radius:11px;border:1px solid rgba(255,195,0,.3);background:rgba(255,195,0,.1);color:var(--secondary);font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;}
 .priority-badge{background:rgba(255,77,77,.2);color:#FF4D4D;padding:2px 8px;border-radius:20px;font-size:.6rem;font-weight:800;margin-left:8px;}
 
 /* ── MENU CARD ── */
@@ -195,6 +191,7 @@ main{padding:14px 14px 100px;}
 .empty-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;margin-bottom:5px;}
 .empty-sub{font-size:.73rem;color:var(--muted);}
 
+/* ── BOTTOM NAVIGATION (MENU UTAMA) ── */
 .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--dark2);border-top:1px solid rgba(255,255,255,.07);display:flex;padding:8px 0 14px;z-index:50;}
 .bni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;}
 .bni-icon{font-size:1.25rem;}
@@ -202,6 +199,10 @@ main{padding:14px 14px 100px;}
 .bni.on .bni-label{color:var(--primary);}
 .bni-dot{width:5px;height:5px;border-radius:50%;background:var(--primary);display:none;}
 .bni.on .bni-dot{display:block;}
+
+/* ── SETTINGS PAGE (BERISI PROFIL, RIWAYAT, CHAT) ── */
+.settings-section{margin-bottom:20px;}
+.settings-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:.9rem;color:var(--primary);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:8px;}
 
 .toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:rgba(22,33,62,.97);color:#fff;font-size:.75rem;font-weight:600;padding:8px 16px;border-radius:30px;z-index:9999;white-space:nowrap;border:1px solid rgba(255,255,255,.1);pointer-events:none;animation:toastIn .28s ease;}
 @keyframes toastIn{from{opacity:0;top:76px}to{opacity:1;top:66px}}
@@ -228,7 +229,7 @@ main{padding:14px 14px 100px;}
       <div class="login-link" style="margin-top:4px"><span onclick="lupaPassword()" style="color:var(--muted)">Lupa password?</span></div>
     </div>
 
-    <!-- STEP 2: DAFTAR RESTO BARU (TANPA ALAMAT & JAM) -->
+    <!-- STEP 2: DAFTAR RESTO BARU -->
     <div class="login-step" id="step2">
       <div class="login-title">📝 Daftar Resto Baru</div>
       <div class="form-group"><label class="form-label">Nama Resto</label><input type="text" class="form-input" id="daftarNamaResto" placeholder="Contoh: Mie Gacoan"></div>
@@ -300,70 +301,79 @@ main{padding:14px 14px 100px;}
   <!-- STATUS TOGGLE -->
   <div class="status-toggle"><div class="toggle-text"><h4 id="statusTitle">🟢 Resto Sedang Buka</h4><p id="statusSub">Menerima order dari pelanggan</p></div><button class="toggle-switch on" id="toggleSwitch" onclick="toggleBuka()"><div class="toggle-knob"></div></button></div>
 
-  <!-- TABS (DENGAN TAB PROFIL) -->
-  <div class="tabs">
-    <button class="tab on" onclick="switchTab('orders',this)">📋 Order</button>
-    <button class="tab" onclick="switchTab('menu',this)">🍽️ Menu</button>
-    <button class="tab" onclick="switchTab('profile',this)">🏪 Profil Resto</button>
-    <button class="tab" onclick="switchTab('history',this)">📊 Riwayat</button>
-    <button class="tab" onclick="switchTab('chat',this)">💬 Chat</button>
+  <!-- ========== Halaman Beranda (Order Masuk) ========== -->
+  <div id="pageBeranda">
+    <div class="sec-title">📋 Order Masuk</div>
+    <div id="orderList"><div class="empty-state"><div class="empty-icon">🍽️</div><div class="empty-title">Belum Ada Order</div><div class="empty-sub">Order baru muncul otomatis</div></div></div>
   </div>
 
-  <!-- TAB: ORDERS -->
-  <div id="tabOrders"><div class="sec-title">📋 Order Masuk</div><div id="orderList"><div class="empty-state"><div class="empty-icon">🍽️</div><div class="empty-title">Belum Ada Order</div><div class="empty-sub">Order baru muncul otomatis</div></div></div></div>
+  <!-- ========== Halaman Menu ========== -->
+  <div id="pageMenu" style="display:none">
+    <div class="sec-title">🍽️ Kelola Menu</div>
+    <div id="menuList"></div>
+    <button class="btn-add-menu" onclick="openAddModal()">➕ Tambah Menu Baru</button>
+  </div>
 
-  <!-- TAB: MENU -->
-  <div id="tabMenu" style="display:none"><div class="sec-title">🍽️ Kelola Menu</div><div id="menuList"></div><button class="btn-add-menu" onclick="openAddModal()">➕ Tambah Menu Baru</button></div>
-
-  <!-- TAB: PROFIL RESTO -->
-  <div id="tabProfile" style="display:none">
-    <div class="profile-header">
-      <div id="coverContainer">
-        <img id="profileCover" class="profile-cover" style="display:none">
-        <div id="profileCoverPlaceholder" class="profile-cover-placeholder">🏪</div>
-      </div>
-      <div class="profile-avatar">
-        <div id="logoContainer">
-          <img id="profileLogo" class="profile-logo" style="display:none">
-          <div id="profileLogoPlaceholder" class="profile-logo-placeholder">🍔</div>
-        </div>
-        <div style="flex:1; display:flex; gap:8px; justify-content:flex-end; padding-right:16px">
-          <button class="upload-badge" onclick="uploadRestoLogo()">📷 Upload Logo</button>
-          <button class="upload-badge" onclick="uploadRestoCover()">🖼️ Upload Cover</button>
-        </div>
-      </div>
-    </div>
+  <!-- ========== Halaman Pengaturan (Settings) ========== -->
+  <div id="pageSettings" style="display:none">
     
-    <div class="profile-info">
-      <div class="profile-field">
-        <label>🏪 Nama Resto</label>
-        <input type="text" id="profileNamaResto" placeholder="Nama resto">
+    <!-- Profil Resto -->
+    <div class="settings-section">
+      <div class="settings-title">🏪 Profil Resto</div>
+      <div class="profile-header">
+        <div id="coverContainer">
+          <img id="profileCover" class="profile-cover" style="display:none">
+          <div id="profileCoverPlaceholder" class="profile-cover-placeholder">🏪</div>
+        </div>
+        <div class="profile-avatar">
+          <div id="logoContainer">
+            <img id="profileLogo" class="profile-logo" style="display:none">
+            <div id="profileLogoPlaceholder" class="profile-logo-placeholder">🍔</div>
+          </div>
+          <div style="flex:1; display:flex; gap:8px; justify-content:flex-end; padding-right:16px">
+            <button class="upload-badge" onclick="uploadRestoLogo()">📷 Upload Logo</button>
+            <button class="upload-badge" onclick="uploadRestoCover()">🖼️ Upload Cover</button>
+          </div>
+        </div>
       </div>
-      <div class="profile-field">
-        <label>📍 Alamat Resto</label>
-        <textarea id="profileAlamatResto" rows="2" placeholder="Alamat lengkap resto"></textarea>
+      <div class="profile-info">
+        <div class="profile-field">
+          <label>🏪 Nama Resto</label>
+          <input type="text" id="profileNamaResto" placeholder="Nama resto">
+        </div>
+        <div class="profile-field">
+          <label>📍 Alamat Resto</label>
+          <textarea id="profileAlamatResto" rows="2" placeholder="Alamat lengkap resto"></textarea>
+        </div>
+        <div class="profile-field">
+          <label>📞 Nomor WhatsApp</label>
+          <input type="tel" id="profileNoWA" placeholder="+628xxxxxxxxxx">
+        </div>
+        <button class="profile-save-btn" onclick="simpanProfilResto()">💾 Simpan Perubahan</button>
       </div>
-      <div class="profile-field">
-        <label>📞 Nomor WhatsApp</label>
-        <input type="tel" id="profileNoWA" placeholder="+628xxxxxxxxxx">
-      </div>
-      <div class="profile-divider"></div>
-      <button class="profile-save-btn" onclick="simpanProfilResto()">💾 Simpan Perubahan</button>
     </div>
+
+    <!-- Riwayat Order -->
+    <div class="settings-section">
+      <div class="settings-title">📊 Riwayat Order</div>
+      <div id="historyList"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Belum Ada Riwayat</div></div></div>
+    </div>
+
+    <!-- Chat dengan Pelanggan & Admin -->
+    <div class="settings-section">
+      <div class="settings-title">💬 Chat</div>
+      <div id="chatRoomList"><div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">Belum Ada Chat</div><div class="empty-sub">Chat dari pelanggan muncul di sini</div></div></div>
+      <button class="btn-add-menu" style="margin-top:10px" onclick="openChatWithAdmin()">💬 Chat Admin</button>
+    </div>
+
   </div>
-
-  <!-- TAB: HISTORY -->
-  <div id="tabHistory" style="display:none"><div class="sec-title">📊 Riwayat Order</div><div id="historyList"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Belum Ada Riwayat</div></div></div></div>
-
-  <!-- TAB: CHAT -->
-  <div id="tabChat" style="display:none"><div class="sec-title">💬 Chat dengan Pelanggan</div><div id="chatRoomList"><div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">Belum Ada Chat</div><div class="empty-sub">Chat dari pelanggan muncul di sini</div></div></div></div>
 </main>
 
+<!-- BOTTOM NAVIGATION (MENU UTAMA) -->
 <div class="bnav">
-  <div class="bni on"><div class="bni-icon">🏠</div><div class="bni-label">Beranda</div><div class="bni-dot"></div></div>
-  <div class="bni"><div class="bni-icon">📋</div><div class="bni-label">Order</div><div class="bni-dot"></div></div>
-  <div class="bni"><div class="bni-icon">🍽️</div><div class="bni-label">Menu</div><div class="bni-dot"></div></div>
-  <div class="bni"><div class="bni-icon">⚙️</div><div class="bni-label">Pengaturan</div><div class="bni-dot"></div></div>
+  <div class="bni on" onclick="switchToPage('beranda', this)"><div class="bni-icon">🏠</div><div class="bni-label">Beranda</div><div class="bni-dot"></div></div>
+  <div class="bni" onclick="switchToPage('menu', this)"><div class="bni-icon">🍽️</div><div class="bni-label">Menu</div><div class="bni-dot"></div></div>
+  <div class="bni" onclick="switchToPage('settings', this)"><div class="bni-icon">⚙️</div><div class="bni-label">Pengaturan</div><div class="bni-dot"></div></div>
 </div>
 
 <!-- CHAT PANEL -->
@@ -372,12 +382,12 @@ main{padding:14px 14px 100px;}
   <div class="chat-header"><div style="font-size:1.3rem" id="chatAvatar">👤</div><div style="flex:1"><div class="chat-header-name" id="chatName">–</div><div class="chat-header-sub" id="chatSub">Pelanggan</div></div><button class="chat-close" onclick="closeChat()">✕</button></div>
   <div class="chat-messages" id="chatMessages"></div>
   <div class="chat-quick"><button class="quick-btn" onclick="sendQuick('Pesanan sedang diproses ya kak 👨‍🍳')">👨‍🍳 Sedang Dimasak</button><button class="quick-btn" onclick="sendQuick('Pesanan sudah siap, driver segera mengambil ✅')">✅ Pesanan Siap</button><button class="quick-btn" onclick="sendQuick('Menu yang diminta sedang habis, ada alternatif lain?')">❓ Menu Habis</button><button class="quick-btn" onclick="sendQuick('Estimasi selesai 15-20 menit lagi ya kak ⏰')">⏰ Estimasi</button><button class="quick-btn" onclick="sendQuick('Terima kasih pesanannya! 😊')">😊 Terima Kasih</button></div>
-  <div class="chat-input-row"><button class="chat-loc-btn" onclick="sendRestoLocation()">📍</button><input class="chat-input" id="chatInput" placeholder="Ketik pesan ke pelanggan..." onkeydown="if(event.key==='Enter')sendChat()"><button class="chat-send-btn" onclick="sendChat()">➤</button></div>
+  <div class="chat-input-row"><button class="chat-loc-btn" onclick="sendRestoLocation()">📍</button><input class="chat-input" id="chatInput" placeholder="Ketik pesan..." onkeydown="if(event.key==='Enter')sendChat()"><button class="chat-send-btn" onclick="sendChat()">➤</button></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Cloudinary SDK untuk upload gambar -->
+<!-- Cloudinary SDK -->
 <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
 
 <script type="module">
@@ -385,8 +395,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, onValue, update, set, push, get, remove, off } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// ========== TIDAK ADA IMPORT FIREBASE STORAGE LAGI ==========
-// Semua gambar sekarang menggunakan Cloudinary
+// ========== IMPORT FCM ==========
+import {
+  getMessaging,
+  getToken,
+  onMessage
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD93ILJjfqLAoLosdXn4Gm_0F20WFiYz2I",
@@ -401,7 +415,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
-// Tidak ada lagi: const storage = getStorage(app);
+const messaging = getMessaging(app);
 
 let restoId = null, restoData = null, isBuka = true, pendingNotifOrderId = null, currentChatRoom = null, chatListenerRef = null, editingMenuId = null, currentImageUrl = null;
 const listeners = {};
@@ -411,13 +425,104 @@ const shownOrders = new Set();
 const CLOUDINARY_CLOUD_NAME = "dr1lk4yiy";
 const CLOUDINARY_UPLOAD_PRESET = "akamsi_upload";
 
-// Variabel untuk menyimpan URL gambar dari Cloudinary
 let currentLogoUrl = null;
 let currentCoverUrl = null;
 
 function nowStr() { return new Date().toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' }); }
 
-// --- ROLE VALIDATION ---
+// ========== FUNGSI FCM UNTUK RESTO ==========
+async function initRestoFCM() {
+  if (!auth.currentUser || !auth.currentUser.uid) {
+    console.log("⏳ FCM Resto: Menunggu user login");
+    return false;
+  }
+  
+  console.log("📱 FCM Resto: Init untuk UID:", auth.currentUser.uid);
+  
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("❌ FCM Resto: Izin notifikasi ditolak");
+      return false;
+    }
+    console.log("✅ FCM Resto: Izin notifikasi diberikan");
+
+    const registration = await navigator.serviceWorker.register(
+      "/Akamsiperdos/firebase-messaging-sw.js",
+      { scope: "/Akamsiperdos/" }
+    );
+    console.log("✅ FCM Resto: Service Worker terdaftar");
+
+    const token = await getToken(messaging, {
+      vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk",
+      serviceWorkerRegistration: registration
+    });
+
+    if (!token) {
+      console.log("❌ FCM Resto: Token kosong");
+      return false;
+    }
+
+    console.log("🔑 FCM Resto TOKEN:", token.substring(0, 30) + "...");
+
+    await update(ref(db, `restos/${restoId}`), {
+      fcmToken: token,
+      lastTokenUpdate: Date.now()
+    });
+    console.log("✅ FCM Resto: Token tersimpan di Firebase");
+
+    onMessage(messaging, (payload) => {
+      console.log("📨 Notifikasi Resto:", payload);
+      
+      if (payload.data?.type === 'new_order' && typeof showNotifPopup === 'function') {
+        get(ref(db, 'orders/' + payload.data.orderId)).then(snap => {
+          if (snap.exists() && snap.val().status === 'menunggu_konfirmasi') {
+            showNotifPopup(payload.data.orderId, snap.val());
+            if (typeof bunyiOrder === 'function') bunyiOrder();
+          }
+        });
+      }
+      
+      if (payload.notification?.body && typeof toast === 'function') {
+        toast("🔔 " + payload.notification.body);
+      }
+    });
+
+    return true;
+  } catch (err) {
+    console.error("❌ FCM Resto ERROR:", err);
+    return false;
+  }
+}
+
+// ========== NAVIGASI BOTTOM NAV ==========
+function switchToPage(page, el) {
+  document.querySelectorAll('.bni').forEach(x => x.classList.remove('on'));
+  el.classList.add('on');
+  
+  document.getElementById('pageBeranda').style.display = 'none';
+  document.getElementById('pageMenu').style.display = 'none';
+  document.getElementById('pageSettings').style.display = 'none';
+  
+  if (page === 'beranda') {
+    document.getElementById('pageBeranda').style.display = 'block';
+  } else if (page === 'menu') {
+    document.getElementById('pageMenu').style.display = 'block';
+  } else if (page === 'settings') {
+    document.getElementById('pageSettings').style.display = 'block';
+    loadProfilResto();
+  }
+}
+
+window.switchToPage = switchToPage;
+
+// ========== CHAT DENGAN ADMIN ==========
+window.openChatWithAdmin = function() {
+  const roomId = `admin_resto_${restoId}`;
+  openChatPanel(roomId, '⚙️ Admin', 'Resto ↔ Admin');
+};
+
+// ========== ROLE VALIDATION ==========
 async function validateRestoAccess(user) {
   if (!user) return false;
   const userSnap = await get(ref(db, 'users/'+user.uid));
@@ -448,10 +553,15 @@ onAuthStateChanged(auth, async user => {
     } else { const acc = snap.val(); restoId = acc.restoId; const restoSnap = await get(ref(db, `restos/${restoId}`)); restoData = restoSnap.val(); }
     document.getElementById('loginScreen').style.display = 'none';
     initResto();
+    
+    // ========== PANGGIL FCM RESTO ==========
+    setTimeout(() => { initRestoFCM(); }, 2000);
+    
   } else if (user && !user.emailVerified) { document.getElementById('verifyEmailDisplay').textContent = user.email || ''; showStep('step3'); }
   else { document.getElementById('loginScreen').style.display = 'flex'; showStep('step1'); cleanupAll(); }
 });
 
+// ========== FUNGSI LOGIN/REGISTER ==========
 window.loginResto = async function() { const email = document.getElementById('loginEmail').value.trim(); const pass = document.getElementById('loginPass').value; if (!email||!pass) { showErr('Email dan password wajib diisi'); return; } const btn=document.getElementById('btnLogin'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { const m={'auth/user-not-found':'Email tidak terdaftar','auth/wrong-password':'Password salah','auth/invalid-email':'Format email tidak valid'}; showErr(m[e.code]||'Login gagal'); } btn.innerHTML='🔑 Masuk'; btn.disabled=false; };
 
 window.daftarResto = async function() {
@@ -503,7 +613,6 @@ function initResto() {
   document.getElementById('restoAlamatDisplay').innerHTML = '📍 ' + (restoData?.alamat || 'Alamat belum diisi');
   document.getElementById('restoInfoDisplay').textContent = 'Jam buka: ' + (restoData?.jamBuka || '08.00 - 22.00');
   
-  // Load logo & cover dari database (URL Cloudinary)
   if (restoData?.logoUrl) {
     currentLogoUrl = restoData.logoUrl;
     document.getElementById('profileLogo').src = currentLogoUrl;
@@ -545,57 +654,33 @@ window.openAddModal = function() { editingMenuId = null; currentImageUrl = null;
 window.editMenu = async function(menuId) { editingMenuId = menuId; const snap = await get(ref(db, `menu/${restoId}/${menuId}`)); const m = snap.val(); if (!m) return; document.getElementById('modalMenuIcon').innerHTML = '✏️'; document.getElementById('modalMenuTitle').innerHTML = 'Edit Menu'; document.getElementById('modalSaveBtn').innerHTML = '💾 Update'; document.getElementById('menuNama').value = m.nama || ''; document.getElementById('menuHarga').value = m.harga || ''; document.getElementById('menuKategori').value = m.kategori || ''; document.getElementById('menuDeskripsi').value = m.deskripsi || ''; document.getElementById('menuStok').value = m.stok || 99; document.getElementById('menuEstimasi').value = m.estimasi || 15; document.getElementById('menuPromo').value = m.promo || ''; if (m.imageUrl) { currentImageUrl = m.imageUrl; document.getElementById('imagePreview').src = m.imageUrl; document.getElementById('imagePreview').style.display = 'block'; document.getElementById('imagePreviewPlaceholder').style.display = 'none'; } else { currentImageUrl = null; document.getElementById('imagePreview').style.display = 'none'; document.getElementById('imagePreviewPlaceholder').style.display = 'flex'; } document.getElementById('modalMenu').classList.add('on'); };
 window.closeModal = function() { document.getElementById('modalMenu').classList.remove('on'); };
 
-// ========== FUNGSI UPLOAD MENU KE CLOUDINARY DENGAN KOMPRESI ==========
+// ========== FUNGSI UPLOAD KE CLOUDINARY ==========
 window.uploadMenuImageCloudinary = function() {
-  if (!window.cloudinary) {
-    toast('⚠️ Cloudinary belum siap, tunggu sebentar');
-    return;
-  }
+  if (!window.cloudinary) { toast('⚠️ Cloudinary belum siap'); return; }
+  if (!restoId) { toast('⚠️ Resto ID tidak ditemukan'); return; }
   
-  if (!restoId) {
-    toast('⚠️ Resto ID tidak ditemukan');
-    return;
-  }
-  
-  // Buka widget dengan pengaturan kompresi
   window.cloudinary.openUploadWidget({
     cloudName: CLOUDINARY_CLOUD_NAME,
     uploadPreset: CLOUDINARY_UPLOAD_PRESET,
     sources: ['local', 'camera'],
-    cropping: false,  // Matikan cropping biar lebih cepat
+    cropping: false,
     folder: `resto_menus/${restoId}`,
     multiple: false,
     maxFiles: 1,
     clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-    maxImageFileSize: 2000000,  // 2MB max
-    // ========== PENGATURAN KOMPRESI ==========
-    transformation: {
-      width: 800,
-      height: 800,
-      crop: "limit",      // Limit agar tidak melebihi 800x800
-      quality: "auto:eco", // Kompresi otomatis dengan kualitas baik
-      fetch_format: "auto"   // Format otomatis (WebP jika didukung)
-    },
-    // Fallback untuk kompresi manual
+    maxImageFileSize: 2000000,
+    transformation: { width: 800, height: 800, crop: "limit", quality: "auto:eco", fetch_format: "auto" },
     maxImageWidth: 800,
     maxImageHeight: 800
   }, (error, result) => {
-    if (error) {
-      console.error(error);
-      toast('❌ Gagal upload foto menu');
-      return;
-    }
+    if (error) { toast('❌ Gagal upload foto menu'); return; }
     if (result && result.event === 'success') {
-      // secure_url sudah otomatis dari Cloudinary
       const imageUrl = result.info.secure_url;
       currentImageUrl = imageUrl;
       document.getElementById('imagePreview').src = imageUrl;
       document.getElementById('imagePreview').style.display = 'block';
       document.getElementById('imagePreviewPlaceholder').style.display = 'none';
-      
-      // Tampilkan ukuran file setelah upload (info)
-      const fileSize = result.info.bytes;
-      const sizeKB = (fileSize / 1024).toFixed(0);
+      const sizeKB = (result.info.bytes / 1024).toFixed(0);
       toast(`✅ Foto menu berhasil diupload! (${sizeKB} KB)`);
     }
   });
@@ -610,35 +695,16 @@ window.simpanMenu = async function() {
   const estimasi = parseInt(document.getElementById('menuEstimasi').value) || 15;
   const promo = document.getElementById('menuPromo').value;
   
-  if (!nama || harga <= 0) {
-    toast('⚠️ Nama dan harga wajib diisi');
-    return;
-  }
+  if (!nama || harga <= 0) { toast('⚠️ Nama dan harga wajib diisi'); return; }
   
-  const menuData = {
-    nama,
-    harga,
-    kategori,
-    deskripsi,
-    stok,
-    estimasi,
-    promo,
-    imageUrl: currentImageUrl || null,  // URL dari Cloudinary
-    habis: stok === 0,
-    updatedAt: Date.now()
-  };
-  
-  if (editingMenuId) {
-    await update(ref(db, `menu/${restoId}/${editingMenuId}`), menuData);
-  } else {
-    await push(ref(db, `menu/${restoId}`), { ...menuData, createdAt: Date.now() });
-  }
-  
+  const menuData = { nama, harga, kategori, deskripsi, stok, estimasi, promo, imageUrl: currentImageUrl || null, habis: stok === 0, updatedAt: Date.now() };
+  if (editingMenuId) { await update(ref(db, `menu/${restoId}/${editingMenuId}`), menuData); }
+  else { await push(ref(db, `menu/${restoId}`), { ...menuData, createdAt: Date.now() }); }
   closeModal();
   toast(editingMenuId ? '✅ Menu berhasil diupdate!' : '✅ Menu berhasil ditambahkan!');
 };
 
-window.terimaOrder = async function(id) { await update(ref(db, 'orders/'+id), { status:'dikonfirmasi', konfirmasiWaktu: Date.now() }); const snap = await get(ref(db, `restos/${restoId}/totalOrders`)); await set(ref(db, `restos/${restoId}/totalOrders`), (snap.val()||0) + 1); toast('✅ Order diterima!'); };
+window.terimaOrder = async function(id) { await update(ref(db, 'orders/'+id), { status:'dikonfirmasi', konfirmasiWaktu: Date.now() }); toast('✅ Order diterima!'); };
 window.tolakOrder = async function(id) { if (confirm('Yakin menolak order ini?')) { await update(ref(db, 'orders/'+id), { status:'ditolak_resto', tolakWaktu: Date.now() }); toast('❌ Order ditolak'); } };
 window.siapOrder = async function(id) { await update(ref(db, 'orders/'+id), { status:'menunggu_driver', siapWaktu: Date.now() }); toast('✅ Pesanan siap! Mencari driver...'); };
 window.terimaOrderNotif = function() { document.getElementById('notifPopup').classList.remove('show'); if (pendingNotifOrderId) terimaOrder(pendingNotifOrderId); };
@@ -658,17 +724,7 @@ window.closeChat = function() { document.getElementById('chatOverlay').classList
 function getStatusClass(s) { if (s==='menunggu_konfirmasi') return 'baru'; if (['dikonfirmasi','diproses'].includes(s)) return 'diproses'; if (s==='menunggu_driver') return 'siap'; if (s==='selesai') return 'selesai'; if (s.includes('ditolak')||s.includes('dibatalkan')) return 'batal'; return 'baru'; }
 function getStatusLabel(s) { const m = { menunggu_konfirmasi:'🔔 Order Baru', dikonfirmasi:'✅ Dikonfirmasi', diproses:'👨‍🍳 Dimasak', menunggu_driver:'✅ Siap - Cari Driver', driver_ditemukan:'🏍️ Driver Menuju Resto', selesai:'✅ Selesai', ditolak_resto:'❌ Ditolak', dibatalkan_pelanggan:'🚫 Dibatalkan Pelanggan', dibatalkan_admin:'🚫 Dibatalkan Admin' }; return m[s]||s; }
 
-// ========== SWITCH TAB (DENGAN PROFIL) ==========
-window.switchTab = function(tab, el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
-  el.classList.add('on');
-  ['tabOrders','tabMenu','tabProfile','tabHistory','tabChat'].forEach(id => document.getElementById(id).style.display='none');
-  const map = { orders:'tabOrders', menu:'tabMenu', profile:'tabProfile', history:'tabHistory', chat:'tabChat' };
-  document.getElementById(map[tab]).style.display = 'block';
-  if (tab === 'profile') loadProfilResto();
-};
-
-// ========== FUNGSI PROFIL RESTO DENGAN KOMPRESI ==========
+// ========== FUNGSI PROFIL RESTO ==========
 async function loadProfilResto() {
   if (!restoId) return;
   const snap = await get(ref(db, `restos/${restoId}`));
@@ -699,13 +755,8 @@ async function loadProfilResto() {
   }
 }
 
-// UPLOAD LOGO DENGAN KOMPRESI
 window.uploadRestoLogo = function() {
-  if (!window.cloudinary) {
-    toast('⚠️ Cloudinary belum siap, tunggu sebentar');
-    return;
-  }
-  
+  if (!window.cloudinary) { toast('⚠️ Cloudinary belum siap'); return; }
   window.cloudinary.openUploadWidget({
     cloudName: CLOUDINARY_CLOUD_NAME,
     uploadPreset: CLOUDINARY_UPLOAD_PRESET,
@@ -716,42 +767,25 @@ window.uploadRestoLogo = function() {
     maxFiles: 1,
     clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     maxImageFileSize: 2000000,
-    transformation: {
-      width: 300,
-      height: 300,
-      crop: "limit",
-      quality: "auto:eco",
-      fetch_format: "auto"
-    },
+    transformation: { width: 300, height: 300, crop: "limit", quality: "auto:eco", fetch_format: "auto" },
     maxImageWidth: 300,
     maxImageHeight: 300
   }, (error, result) => {
-    if (error) {
-      console.error(error);
-      toast('❌ Gagal upload logo');
-      return;
-    }
+    if (error) { toast('❌ Gagal upload logo'); return; }
     if (result && result.event === 'success') {
       const imageUrl = result.info.secure_url;
       currentLogoUrl = imageUrl;
       document.getElementById('profileLogo').src = imageUrl;
       document.getElementById('profileLogo').style.display = 'block';
       document.getElementById('profileLogoPlaceholder').style.display = 'none';
-      
-      const fileSize = result.info.bytes;
-      const sizeKB = (fileSize / 1024).toFixed(0);
-      toast(`✅ Logo berhasil diupload! (${sizeKB} KB) - Jangan lupa simpan perubahan.`);
+      const sizeKB = (result.info.bytes / 1024).toFixed(0);
+      toast(`✅ Logo berhasil diupload! (${sizeKB} KB)`);
     }
   });
 };
 
-// UPLOAD COVER DENGAN KOMPRESI
 window.uploadRestoCover = function() {
-  if (!window.cloudinary) {
-    toast('⚠️ Cloudinary belum siap, tunggu sebentar');
-    return;
-  }
-  
+  if (!window.cloudinary) { toast('⚠️ Cloudinary belum siap'); return; }
   window.cloudinary.openUploadWidget({
     cloudName: CLOUDINARY_CLOUD_NAME,
     uploadPreset: CLOUDINARY_UPLOAD_PRESET,
@@ -762,31 +796,19 @@ window.uploadRestoCover = function() {
     maxFiles: 1,
     clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     maxImageFileSize: 2000000,
-    transformation: {
-      width: 1200,
-      height: 400,
-      crop: "limit",
-      quality: "auto:eco",
-      fetch_format: "auto"
-    },
+    transformation: { width: 1200, height: 400, crop: "limit", quality: "auto:eco", fetch_format: "auto" },
     maxImageWidth: 1200,
     maxImageHeight: 400
   }, (error, result) => {
-    if (error) {
-      console.error(error);
-      toast('❌ Gagal upload cover');
-      return;
-    }
+    if (error) { toast('❌ Gagal upload cover'); return; }
     if (result && result.event === 'success') {
       const imageUrl = result.info.secure_url;
       currentCoverUrl = imageUrl;
       document.getElementById('profileCover').src = imageUrl;
       document.getElementById('profileCover').style.display = 'block';
       document.getElementById('profileCoverPlaceholder').style.display = 'none';
-      
-      const fileSize = result.info.bytes;
-      const sizeKB = (fileSize / 1024).toFixed(0);
-      toast(`✅ Cover berhasil diupload! (${sizeKB} KB) - Jangan lupa simpan perubahan.`);
+      const sizeKB = (result.info.bytes / 1024).toFixed(0);
+      toast(`✅ Cover berhasil diupload! (${sizeKB} KB)`);
     }
   });
 };
@@ -796,25 +818,12 @@ window.simpanProfilResto = async function() {
   const alamat = document.getElementById('profileAlamatResto').value.trim();
   const noWA = document.getElementById('profileNoWA').value.trim();
   
-  if (!nama) {
-    toast('⚠️ Nama resto wajib diisi');
-    return;
-  }
+  if (!nama) { toast('⚠️ Nama resto wajib diisi'); return; }
   
-  const updateData = {
-    nama: nama,
-    alamat: alamat,
-    noWA: noWA,
-    logoUrl: currentLogoUrl || null,
-    coverUrl: currentCoverUrl || null,
-    updatedAt: Date.now()
-  };
-  
+  const updateData = { nama, alamat, noWA, logoUrl: currentLogoUrl || null, coverUrl: currentCoverUrl || null, updatedAt: Date.now() };
   await update(ref(db, `restos/${restoId}`), updateData);
-  
   document.getElementById('restoNameDisplay').textContent = nama;
   document.getElementById('restoAlamatDisplay').innerHTML = '📍 ' + (alamat || 'Alamat belum diisi');
-  
   toast('✅ Profil resto berhasil disimpan!');
 };
 
@@ -829,21 +838,7 @@ let _tt; window.toast = function(msg) { clearTimeout(_tt); document.querySelecto
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.textContent = '⬇️ Install App';
-  btn.style.cssText = [
-    'position:fixed',
-    'right:16px',
-    'bottom:76px',
-    'z-index:9998',
-    'display:none',
-    'padding:12px 16px',
-    'border:none',
-    'border-radius:999px',
-    'background:#00C897',
-    'color:#fff',
-    'font:700 13px/1.2 Poppins,system-ui,sans-serif',
-    'box-shadow:0 10px 24px rgba(0,0,0,.28)',
-    'cursor:pointer'
-  ].join(';');
+  btn.style.cssText = ['position:fixed','right:16px','bottom:76px','z-index:9998','display:none','padding:12px 16px','border:none','border-radius:999px','background:#00C897','color:#fff','font:700 13px/1.2 Poppins,system-ui,sans-serif','box-shadow:0 10px 24px rgba(0,0,0,.28)','cursor:pointer'].join(';');
   btn.addEventListener('click', async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();

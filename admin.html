@@ -99,6 +99,7 @@ main{padding:14px 14px 100px;}
 .driver-approve-btn{border-color:rgba(0,200,151,.3);background:rgba(0,200,151,.1);color:var(--accent);}
 .driver-reject-btn{border-color:rgba(255,77,77,.3);background:rgba(255,77,77,.1);color:var(--primary);}
 .driver-suspend-btn{border-color:rgba(255,195,0,.3);background:rgba(255,195,0,.1);color:var(--secondary);}
+.resto-chat-btn{border-color:rgba(255,195,0,.3);background:rgba(255,195,0,.1);color:var(--secondary);}
 
 .chat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:600;display:none;backdrop-filter:blur(4px);}
 .chat-overlay.on{display:block;}
@@ -184,7 +185,7 @@ main{padding:14px 14px 100px;}
 
   <div id="tabOrders"><div id="orderList"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Memuat Order...</div></div></div></div>
   <div id="tabDrivers" style="display:none"><div class="sec-title">🏍️ Manajemen Driver</div><div id="driverList"></div></div>
-  <div id="tabRestos" style="display:none"><div class="sec-title">🍔 Status Resto</div><div id="restoList"></div></div>
+  <div id="tabRestos" style="display:none"><div class="sec-title">🍔 Manajemen Resto</div><div id="restoList"></div></div>
   <div id="tabChats" style="display:none"><div class="sec-title">💬 Monitor Chat Aktif</div><div id="chatMonitorList"></div></div>
 </main>
 
@@ -226,6 +227,13 @@ import {
   get
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+// ========== IMPORT FCM ==========
+import {
+  getMessaging,
+  getToken,
+  onMessage
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyD93ILJjfqLAoLosdXn4Gm_0F20WFiYz2I",
   authDomain: "akamsiperdos-84b0b.firebaseapp.com",
@@ -239,9 +247,85 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+const messaging = getMessaging(app);
+
 let adminMap = null;
 const listeners = {};
 const driverMarkers = {};
+
+// ========== FUNGSI FCM UNTUK ADMIN ==========
+async function initAdminFCM() {
+  if (!auth.currentUser || !auth.currentUser.uid) {
+    console.log("⏳ FCM Admin: Menunggu user login");
+    return false;
+  }
+  
+  console.log("📱 FCM Admin: Init untuk UID:", auth.currentUser.uid);
+  
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("❌ FCM Admin: Izin notifikasi ditolak");
+      return false;
+    }
+    console.log("✅ FCM Admin: Izin notifikasi diberikan");
+
+    const registration = await navigator.serviceWorker.register(
+      "/Akamsiperdos/firebase-messaging-sw.js",
+      { scope: "/Akamsiperdos/" }
+    );
+    console.log("✅ FCM Admin: Service Worker terdaftar");
+
+    const token = await getToken(messaging, {
+      vapidKey: "BOMarxuubbj7MI-pfNQvyYgneOSGkpzWtbiaeexMTObU86Tgogfb3SsC-4zGUWuikSJbA-Y_s0B27s8GXzzW5qk",
+      serviceWorkerRegistration: registration
+    });
+
+    if (!token) {
+      console.log("❌ FCM Admin: Token kosong");
+      return false;
+    }
+
+    console.log("🔑 FCM Admin TOKEN:", token.substring(0, 30) + "...");
+
+    await update(ref(db, 'users/' + auth.currentUser.uid), {
+      fcmToken: token,
+      lastTokenUpdate: Date.now()
+    });
+    console.log("✅ FCM Admin: Token tersimpan di Firebase");
+
+    onMessage(messaging, (payload) => {
+      console.log("📨 Notifikasi Admin:", payload);
+      if (typeof bunyiOrder === 'function') bunyiOrder();
+      if (Notification.permission === "granted") {
+        new Notification(payload.notification?.title || "AKAMSI Admin", {
+          body: payload.notification?.body || "Ada update baru",
+          icon: "./admin-192.png",
+          badge: "./admin-192.png",
+          vibrate: [200, 100, 200]
+        });
+      }
+      if (payload.notification?.body && typeof toast === 'function') {
+        toast("🔔 " + payload.notification.body);
+      }
+      // Refresh data jika perlu
+      if (payload.data?.refresh === 'true') {
+        get(ref(db, 'orders')).then(snap => renderAllOrders(snap.val() || {}));
+      }
+    });
+
+    return true;
+  } catch (err) {
+    console.error("❌ FCM Admin ERROR:", err);
+    return false;
+  }
+}
+
+// ========== CHAT DENGAN RESTO ==========
+window.openChatWithResto = function(restoId, restoNama, orderId) {
+  const roomId = `admin_resto_${restoId}`;
+  openChatPanel(roomId, '🍔 ' + (restoNama || 'Resto'), 'Admin ↔ Resto');
+};
 
 // ========== FALLBACK UNTUK ADMIN ==========
 async function ensureAdminUser(user) {
@@ -272,6 +356,10 @@ onAuthStateChanged(auth, async (user) => {
     if (!ok) return;
     document.getElementById('loginScreen').style.display = 'none';
     initAdmin();
+    
+    // ========== PANGGIL FCM ADMIN ==========
+    setTimeout(() => { initAdminFCM(); }, 2000);
+    
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     cleanupListeners();
@@ -354,6 +442,7 @@ function renderAllOrders(orders) {
       <div class="order-header"><div class="order-id">#${id.slice(-6).toUpperCase()} · ${(o.tipe||'').toUpperCase()}</div><div class="order-badge ${getBadgeClass(o.status)}">${getStatusLabel(o.status)}</div></div>
       <div class="order-row"><span class="order-lbl">Pelanggan</span><span class="order-val">${o.pelanggan||'–'}</span></div>
       <div class="order-row"><span class="order-lbl">Driver</span><span class="order-val">${o.driverNama||'Belum ada'}</span></div>
+      <div class="order-row"><span class="order-lbl">Resto</span><span class="order-val">${o.restoNama||(o.resto ? o.resto : '–')}</span></div>
       <div class="order-row"><span class="order-lbl">Waktu</span><span class="order-val">${o.waktuStr||'–'}</span></div>
       ${o.tipe==='makanan'?`<div class="order-row"><span class="order-lbl">Menu</span><span class="order-val">${o.menu||'–'}</span></div>`:''}
       ${o.tipe==='penumpang'?`<div class="order-row"><span class="order-lbl">Rute</span><span class="order-val">${o.dari||'–'} → ${o.ke||'–'}</span></div>`:''}
@@ -363,6 +452,7 @@ function renderAllOrders(orders) {
           <button class="admin-btn danger" onclick="cancelOrder('${id}')">❌ Batalkan</button>
         `:`<span style="font-size:.74rem;color:var(--muted)">Order sudah ${o.status}</span>`}
         ${o.driverId?`<button class="admin-btn info" onclick="openChatWithDriver('${o.driverId}','${o.driverNama||'Driver'}','${id}')">💬 Chat Driver</button>`:''}
+        ${o.resto?`<button class="admin-btn info" onclick="openChatWithResto('${o.resto}','${o.restoNama||o.resto}','${id}')">💬 Chat Resto</button>`:''}
       </div>
     </div>
   `).join('');
@@ -420,12 +510,12 @@ window.updateDriverStatus = async function(driverId, newStatus) {
   try {
     await update(ref(db, 'drivers/' + driverId), { status: newStatus, updatedByAdmin: true, updatedAt: Date.now() });
     toast(`✅ Status driver diubah menjadi ${newStatus}`);
-    // Refresh akan otomatis karena listener drivers
   } catch (e) {
     toast('❌ Gagal mengubah status: ' + e.message);
   }
 };
 
+// ========== RENDER RESTOS DENGAN TOMBOL CHAT ==========
 function renderRestos(restos) {
   const list = document.getElementById('restoList');
   const entries = Object.entries(restos);
@@ -434,7 +524,10 @@ function renderRestos(restos) {
   list.innerHTML = entries.map(([id, d]) => `
     <div class="driver-item">
       <div class="driver-avatar" style="font-size:1.4rem">${icons[id]||'🍽️'}<div class="driver-online-dot ${d.status!=='tutup'?'on':''}"></div></div>
-      <div class="driver-info"><div class="driver-name">${d.nama||id}</div><div class="driver-sub">${d.status!=='tutup'?'🟢 Buka':'🔴 Tutup'}</div></div>
+      <div class="driver-info"><div class="driver-name">${d.nama||id}</div><div class="driver-sub">${d.status!=='tutup'?'🟢 Buka':'🔴 Tutup'} · ${d.alamat ? d.alamat.substring(0,50) : 'Alamat belum diisi'}</div></div>
+      <div class="driver-actions">
+        <button class="driver-chat-btn" onclick="openChatWithResto('${id}','${d.nama||id}', '')">💬 Chat</button>
+      </div>
     </div>
   `).join('');
 }
@@ -555,6 +648,20 @@ window.switchBnav = function(idx, el) {
   document.querySelectorAll('.bni').forEach(x => x.classList.remove('on'));
   el.classList.add('on');
 };
+
+function bunyiOrder() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[0, 880, .5], [150, 1046, .5], [300, 880, .5], [450, 1046, .5], [600, 1318, .6]].forEach(([delay, freq, vol]) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime + delay / 1000);
+      gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + delay / 1000 + .35);
+      osc.start(ctx.currentTime + delay / 1000); osc.stop(ctx.currentTime + delay / 1000 + .35);
+    });
+  } catch(e) {}
+}
 
 let _tt;
 window.toast = function(msg) {
