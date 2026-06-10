@@ -121,6 +121,9 @@ main{padding:14px 14px 90px;}
 .ao-btn.chat-resto{background:rgba(255,195,0,.15);color:var(--secondary);border:1px solid rgba(255,195,0,.3);}
 .ao-btn.wa{background:rgba(37,211,102,.15);color:#25D366;border:1px solid rgba(37,211,102,.3);}
 .ao-btn.admin{background:rgba(255,195,0,.12);color:var(--secondary);border:1px solid rgba(255,195,0,.25);}
+.ao-btn.resto-nav{background:rgba(255,195,0,.12);color:var(--secondary);border:1px solid rgba(255,195,0,.25);}
+.ao-btn.pickup-nav{background:rgba(78,205,196,.15);color:var(--passenger);border:1px solid rgba(78,205,196,.3);}
+.ao-btn.dest-nav{background:rgba(78,205,196,.15);color:var(--passenger);border:1px solid rgba(78,205,196,.3);}
 .ao-btn.pickup{background:linear-gradient(135deg,#FFC300,#FF8C00);color:#fff;}
 .ao-btn.cancel{background:rgba(255,77,77,.15);color:var(--primary);border:1px solid rgba(255,77,77,.3);}
 .ao-btn.arrive{grid-column:1/-1;background:linear-gradient(135deg,#00C9B1,#4ECDC4);color:#fff;padding:13px;display:none;}
@@ -259,6 +262,9 @@ main{padding:14px 14px 90px;}
     <div id="orderDetailContainer"></div>
     <div class="ao-actions">
       <button class="ao-btn nav" onclick="bukaNavigasi()">🗺️ Navigasi</button>
+      <button class="ao-btn resto-nav" onclick="navigateToResto()">🏪 Navigasi Resto</button>
+      <button class="ao-btn pickup-nav" onclick="navigateToPickup()">📍 Navigasi Jemput</button>
+      <button class="ao-btn dest-nav" onclick="navigateToDestination()">🏁 Navigasi Tujuan</button>
       <button class="ao-btn chat" onclick="openChatWithPelanggan()">💬 Chat</button>
       <button class="ao-btn chat-resto" onclick="openChatWithResto()">🍔 Chat Resto</button>
       <button class="ao-btn wa" onclick="hubungiPelangganWA()">📱 WhatsApp</button>
@@ -294,12 +300,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, onValue, update, set, push, get, serverTimestamp, off, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// ========== IMPORT FCM ==========
-import {
-  getMessaging,
-  getToken,
-  onMessage
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD93ILJjfqLAoLosdXn4Gm_0F20WFiYz2I",
@@ -366,9 +367,7 @@ async function initDriverFCM() {
 
     onMessage(messaging, (payload) => {
       console.log("📨 Notifikasi Driver:", payload);
-      
       if (typeof bunyiOrder === 'function') bunyiOrder();
-      
       if (Notification.permission === "granted") {
         new Notification(payload.notification?.title || "AKAMSI Driver", {
           body: payload.notification?.body || "Ada order baru",
@@ -377,7 +376,6 @@ async function initDriverFCM() {
           vibrate: [200, 100, 200]
         });
       }
-      
       if (payload.data?.orderId && typeof showNotifPopup === 'function') {
         get(ref(db, 'orders/' + payload.data.orderId)).then(snap => {
           if (snap.exists() && !snap.val().driverId) {
@@ -385,7 +383,6 @@ async function initDriverFCM() {
           }
         });
       }
-      
       if (payload.notification?.body && typeof toast === 'function') {
         toast("🔔 " + payload.notification.body);
       }
@@ -405,6 +402,46 @@ function updateChatBadge(roomId, isUnread) {
   const badge = document.getElementById('chatBadge');
   if (badge) badge.style.display = total > 0 ? 'flex' : 'none';
 }
+
+// ========== FUNGSI NAVIGASI (PERBAIKAN) ==========
+window.navigateToResto = function() {
+  const lat = activeOrderData?.restoLat;
+  const lng = activeOrderData?.restoLng;
+  const address = activeOrderData?.restoAddress || activeOrderData?.restoNama;
+  if (lat && lng) {
+    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  } else if (address) {
+    window.open(`https://www.google.com/maps?q=${encodeURIComponent(address)}`, '_blank');
+  } else {
+    toast('📍 Alamat resto tidak tersedia');
+  }
+};
+
+window.navigateToPickup = function() {
+  const lat = activeOrderData?.dariLat || activeOrderData?.alamatLat;
+  const lng = activeOrderData?.dariLng || activeOrderData?.alamatLng;
+  const address = activeOrderData?.dari || activeOrderData?.alamat;
+  if (lat && lng) {
+    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  } else if (address) {
+    window.open(`https://www.google.com/maps?q=${encodeURIComponent(address)}`, '_blank');
+  } else {
+    toast('📍 Lokasi jemput tidak tersedia');
+  }
+};
+
+window.navigateToDestination = function() {
+  const lat = activeOrderData?.keLat;
+  const lng = activeOrderData?.keLng;
+  const address = activeOrderData?.ke;
+  if (lat && lng) {
+    window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  } else if (address) {
+    window.open(`https://www.google.com/maps?q=${encodeURIComponent(address)}`, '_blank');
+  } else {
+    toast('📍 Lokasi tujuan tidak tersedia');
+  }
+};
 
 // ========== FUNGSI UTILITY ==========
 function nowStr() {
@@ -1250,7 +1287,6 @@ window.openChatWithAdmin = function() {
   openChatPanel('admin_driver_' + driverData.uid, '⚙️ Admin', 'Driver ↔ Admin');
 };
 
-// ========== CHAT DENGAN RESTO ==========
 window.openChatWithResto = function() {
   if (!activeOrderId || !activeOrderData) {
     toast('Tidak ada order aktif');
@@ -1428,7 +1464,6 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('loginScreen').style.display = 'none';
     initDriver();
 
-    // ========== PANGGIL FCM DRIVER ==========
     setTimeout(() => {
       initDriverFCM();
     }, 2000);
@@ -1456,19 +1491,10 @@ if ('serviceWorker' in navigator) {
   btn.type = 'button';
   btn.textContent = '⬇️ Install App';
   btn.style.cssText = [
-    'position:fixed',
-    'right:16px',
-    'bottom:76px',
-    'z-index:9998',
-    'display:none',
-    'padding:12px 16px',
-    'border:none',
-    'border-radius:999px',
-    'background:#00C897',
-    'color:#fff',
-    'font:700 13px/1.2 Poppins,system-ui,sans-serif',
-    'box-shadow:0 10px 24px rgba(0,0,0,.28)',
-    'cursor:pointer'
+    'position:fixed', 'right:16px', 'bottom:76px', 'z-index:9998', 'display:none',
+    'padding:12px 16px', 'border:none', 'border-radius:999px', 'background:#00C897',
+    'color:#fff', 'font:700 13px/1.2 Poppins,system-ui,sans-serif',
+    'box-shadow:0 10px 24px rgba(0,0,0,.28)', 'cursor:pointer'
   ].join(';');
   btn.addEventListener('click', async () => {
     if (!deferredPrompt) return;

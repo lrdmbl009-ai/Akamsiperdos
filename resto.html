@@ -117,7 +117,7 @@ main{padding:14px 14px 80px;}
 .btn-edit-menu{padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--muted);font-size:.68rem;cursor:pointer;}
 .btn-add-menu{width:100%;padding:10px;border-radius:12px;border:1.5px dashed rgba(255,255,255,.15);background:transparent;color:var(--muted);font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;}
 
-/* ── PROFIL RESTO ── */
+/* ── PROFIL RESTO (DENGAN MAP PICKER) ── */
 .profile-header{background:linear-gradient(135deg,var(--dark2),#0f3460);border-radius:18px;margin-bottom:16px;overflow:hidden;position:relative;}
 .profile-cover{width:100%;height:140px;object-fit:cover;background:linear-gradient(135deg,#FF4D4D,#FF8C42);}
 .profile-cover-placeholder{width:100%;height:140px;background:linear-gradient(135deg,#FF4D4D,#FF8C42);display:flex;align-items:center;justify-content:center;font-size:2rem;color:rgba(255,255,255,0.7);}
@@ -337,9 +337,17 @@ main{padding:14px 14px 80px;}
         </div>
       </div>
       <div class="profile-info">
+        <!-- MAP PICKER UNTUK LOKASI RESTO -->
+        <div class="profile-field">
+          <label>📍 Pilih Lokasi Resto di Peta</label>
+          <div style="display:flex; gap:6px">
+            <input type="text" class="form-input" id="restoKoordinat" placeholder="Klik pilih lokasi di peta" readonly>
+            <button type="button" class="lbtn" onclick="openMapForResto()">🗺️</button>
+          </div>
+        </div>
         <div class="profile-field">
           <label>🏪 Nama Resto</label>
-          <input type="text" id="profileNamaResto" placeholder="Nama resto">
+          <input type="text" class="form-input" id="profileNamaResto" placeholder="Nama resto">
         </div>
         <div class="profile-field">
           <label>📍 Alamat Resto</label>
@@ -427,6 +435,10 @@ const CLOUDINARY_UPLOAD_PRESET = "akamsi_upload";
 
 let currentLogoUrl = null;
 let currentCoverUrl = null;
+let selectedRestoLat = null;
+let selectedRestoLng = null;
+let lmap = null;
+let mapTarget = 'from';
 
 function nowStr() { return new Date().toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' }); }
 
@@ -495,6 +507,31 @@ async function initRestoFCM() {
   }
 }
 
+// ========== MAP PICKER UNTUK RESTO ==========
+window.openMapForResto = function() {
+  document.getElementById('mapScreen').classList.add('on');
+  document.getElementById('mapTitle').textContent = '📍 Pilih Lokasi Resto';
+  mapTarget = 'resto';
+  
+  setTimeout(() => {
+    if (!lmap) {
+      const TONDO_SW = L.latLng(-0.8700, 119.8700);
+      const TONDO_NE = L.latLng(-0.8050, 119.9300);
+      const TONDO_BOUNDS = L.latLngBounds(TONDO_SW, TONDO_NE);
+      lmap = L.map('mapEl', { zoomControl: false, attributionControl: false, maxBounds: TONDO_BOUNDS, minZoom: 13 }).setView([-0.8365, 119.8927], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(lmap);
+      L.control.zoom({ position: 'topright' }).addTo(lmap);
+      L.rectangle(TONDO_BOUNDS, { color: '#FF4D4D', weight: 2, fill: false, dashArray: '8,6' }).addTo(lmap);
+      lmap.on('moveend', () => {
+        const c = lmap.getCenter();
+        reverseGeo(c.lat, c.lng, a => document.getElementById('mapAddrText').textContent = a);
+      });
+    } else {
+      lmap.invalidateSize();
+    }
+  }, 80);
+};
+
 // ========== NAVIGASI BOTTOM NAV ==========
 function switchToPage(page, el) {
   document.querySelectorAll('.bni').forEach(x => x.classList.remove('on'));
@@ -537,6 +574,47 @@ async function validateRestoAccess(user) {
   return true;
 }
 
+// ========== FUNGSI MAP GLOBAL ==========
+async function reverseGeo(lat, lng, cb) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id`);
+    const d = await r.json();
+    cb(d.display_name ? d.display_name.split(',').slice(0, 3).join(', ') : `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+  } catch {
+    cb(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+  }
+}
+
+window.confirmMap = function() {
+  const addr = document.getElementById('mapAddrText').textContent;
+  if (addr.includes('Geser peta')) {
+    toast('⏳ Tunggu sebentar...');
+    return;
+  }
+  const c = lmap.getCenter();
+  const inTondo = c.lat >= -0.8700 && c.lat <= -0.8050 && c.lng >= 119.8700 && c.lng <= 119.9300;
+  if (!inTondo) {
+    toast('❌ Lokasi di luar area layanan Tondo!');
+    return;
+  }
+  
+  if (mapTarget === 'resto') {
+    selectedRestoLat = c.lat;
+    selectedRestoLng = c.lng;
+    document.getElementById('restoKoordinat').value = addr;
+    document.getElementById('profileAlamatResto').value = addr;
+    closeMap();
+    toast('✅ Lokasi resto dipilih!');
+    return;
+  }
+  closeMap();
+};
+
+window.closeMap = function() {
+  document.getElementById('mapScreen').classList.remove('on');
+};
+
+// ========== ON AUTH STATE CHANGED ==========
 onAuthStateChanged(auth, async user => {
   if (user && user.emailVerified) {
     const valid = await validateRestoAccess(user);
@@ -554,7 +632,6 @@ onAuthStateChanged(auth, async user => {
     document.getElementById('loginScreen').style.display = 'none';
     initResto();
     
-    // ========== PANGGIL FCM RESTO ==========
     setTimeout(() => { initRestoFCM(); }, 2000);
     
   } else if (user && !user.emailVerified) { document.getElementById('verifyEmailDisplay').textContent = user.email || ''; showStep('step3'); }
@@ -724,7 +801,7 @@ window.closeChat = function() { document.getElementById('chatOverlay').classList
 function getStatusClass(s) { if (s==='menunggu_konfirmasi') return 'baru'; if (['dikonfirmasi','diproses'].includes(s)) return 'diproses'; if (s==='menunggu_driver') return 'siap'; if (s==='selesai') return 'selesai'; if (s.includes('ditolak')||s.includes('dibatalkan')) return 'batal'; return 'baru'; }
 function getStatusLabel(s) { const m = { menunggu_konfirmasi:'🔔 Order Baru', dikonfirmasi:'✅ Dikonfirmasi', diproses:'👨‍🍳 Dimasak', menunggu_driver:'✅ Siap - Cari Driver', driver_ditemukan:'🏍️ Driver Menuju Resto', selesai:'✅ Selesai', ditolak_resto:'❌ Ditolak', dibatalkan_pelanggan:'🚫 Dibatalkan Pelanggan', dibatalkan_admin:'🚫 Dibatalkan Admin' }; return m[s]||s; }
 
-// ========== FUNGSI PROFIL RESTO ==========
+// ========== FUNGSI PROFIL RESTO (DENGAN KOORDINAT) ==========
 async function loadProfilResto() {
   if (!restoId) return;
   const snap = await get(ref(db, `restos/${restoId}`));
@@ -733,6 +810,12 @@ async function loadProfilResto() {
   document.getElementById('profileNamaResto').value = data.nama || '';
   document.getElementById('profileAlamatResto').value = data.alamat || '';
   document.getElementById('profileNoWA').value = data.noWA || '';
+  
+  if (data.latitude && data.longitude) {
+    selectedRestoLat = data.latitude;
+    selectedRestoLng = data.longitude;
+    document.getElementById('restoKoordinat').value = `${data.latitude}, ${data.longitude}`;
+  }
   
   currentLogoUrl = data.logoUrl || null;
   if (currentLogoUrl) {
@@ -820,7 +903,16 @@ window.simpanProfilResto = async function() {
   
   if (!nama) { toast('⚠️ Nama resto wajib diisi'); return; }
   
-  const updateData = { nama, alamat, noWA, logoUrl: currentLogoUrl || null, coverUrl: currentCoverUrl || null, updatedAt: Date.now() };
+  const updateData = { 
+    nama: nama, 
+    alamat: alamat, 
+    noWA: noWA, 
+    logoUrl: currentLogoUrl || null, 
+    coverUrl: currentCoverUrl || null,
+    latitude: selectedRestoLat || null,
+    longitude: selectedRestoLng || null,
+    updatedAt: Date.now() 
+  };
   await update(ref(db, `restos/${restoId}`), updateData);
   document.getElementById('restoNameDisplay').textContent = nama;
   document.getElementById('restoAlamatDisplay').innerHTML = '📍 ' + (alamat || 'Alamat belum diisi');
