@@ -566,14 +566,14 @@ window.uploadMenuImageCloudinary = function() {
     folder: `resto_menus/${restoId}`,
     multiple: false,
     maxFiles: 1,
-    clientAllowedFormats: ['images'],
+    clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     maxImageFileSize: 2000000,  // 2MB max
     // ========== PENGATURAN KOMPRESI ==========
     transformation: {
       width: 800,
       height: 800,
       crop: "limit",      // Limit agar tidak melebihi 800x800
-      quality: "auto:good", // Kompresi otomatis dengan kualitas baik
+      quality: "auto:eco", // Kompresi otomatis dengan kualitas baik
       fetch_format: "auto"   // Format otomatis (WebP jika didukung)
     },
     // Fallback untuk kompresi manual
@@ -714,13 +714,13 @@ window.uploadRestoLogo = function() {
     folder: `resto_logos/${restoId}`,
     multiple: false,
     maxFiles: 1,
-    clientAllowedFormats: ['images'],
+    clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     maxImageFileSize: 2000000,
     transformation: {
       width: 300,
       height: 300,
       crop: "limit",
-      quality: "auto:good",
+      quality: "auto:eco",
       fetch_format: "auto"
     },
     maxImageWidth: 300,
@@ -760,13 +760,13 @@ window.uploadRestoCover = function() {
     folder: `resto_covers/${restoId}`,
     multiple: false,
     maxFiles: 1,
-    clientAllowedFormats: ['images'],
+    clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     maxImageFileSize: 2000000,
     transformation: {
       width: 1200,
       height: 400,
       crop: "limit",
-      quality: "auto:good",
+      quality: "auto:eco",
       fetch_format: "auto"
     },
     maxImageWidth: 1200,
