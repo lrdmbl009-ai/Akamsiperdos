@@ -121,6 +121,22 @@ main{padding:14px 14px 100px;}
 .btn-edit-menu{padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--muted);font-size:.68rem;cursor:pointer;}
 .btn-add-menu{width:100%;padding:10px;border-radius:12px;border:1.5px dashed rgba(255,255,255,.15);background:transparent;color:var(--muted);font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;}
 
+/* ── PROFIL RESTO ── */
+.profile-header{background:linear-gradient(135deg,var(--dark2),#0f3460);border-radius:18px;margin-bottom:16px;overflow:hidden;position:relative;}
+.profile-cover{width:100%;height:140px;object-fit:cover;background:linear-gradient(135deg,#FF4D4D,#FF8C42);}
+.profile-cover-placeholder{width:100%;height:140px;background:linear-gradient(135deg,#FF4D4D,#FF8C42);display:flex;align-items:center;justify-content:center;font-size:2rem;color:rgba(255,255,255,0.7);}
+.profile-avatar{position:relative;margin-top:-50px;margin-left:16px;display:flex;align-items:flex-end;gap:12px;}
+.profile-logo{width:90px;height:90px;border-radius:20px;object-fit:cover;background:var(--dark2);border:3px solid var(--dark2);box-shadow:0 4px 12px rgba(0,0,0,.3);}
+.profile-logo-placeholder{width:90px;height:90px;border-radius:20px;background:var(--dark2);border:3px solid var(--dark2);display:flex;align-items:center;justify-content:center;font-size:2.2rem;box-shadow:0 4px 12px rgba(0,0,0,.3);}
+.upload-badge{background:var(--accent);border-radius:30px;padding:5px 12px;font-size:.7rem;font-weight:700;color:#fff;cursor:pointer;border:none;margin-bottom:8px;}
+.profile-info{padding:12px 16px 16px;}
+.profile-field{margin-bottom:14px;}
+.profile-field label{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px;}
+.profile-field input,.profile-field textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:11px 14px;color:#fff;font-family:'Poppins',sans-serif;font-size:.86rem;outline:none;}
+.profile-field input:focus,.profile-field textarea:focus{border-color:var(--accent);}
+.profile-save-btn{width:100%;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,#00C9B1,#4ECDC4);color:#fff;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;cursor:pointer;margin-top:8px;}
+.profile-divider{height:1px;background:rgba(255,255,255,.08);margin:20px 0;}
+
 /* ── NOTIF POPUP ── */
 .notif-popup{position:fixed;top:68px;left:12px;right:12px;z-index:500;background:var(--dark2);border-radius:16px;padding:16px;border:1px solid rgba(255,195,0,.4);box-shadow:0 8px 32px rgba(0,0,0,.6);transform:translateY(-140%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
 .notif-popup.show{transform:translateY(0);pointer-events:auto;}
@@ -212,7 +228,7 @@ main{padding:14px 14px 100px;}
       <div class="login-link" style="margin-top:4px"><span onclick="lupaPassword()" style="color:var(--muted)">Lupa password?</span></div>
     </div>
 
-    <!-- STEP 2: DAFTAR RESTO BARU -->
+    <!-- STEP 2: DAFTAR RESTO BARU (TANPA ALAMAT & JAM) -->
     <div class="login-step" id="step2">
       <div class="login-title">📝 Daftar Resto Baru</div>
       <div class="form-group"><label class="form-label">Nama Resto</label><input type="text" class="form-input" id="daftarNamaResto" placeholder="Contoh: Mie Gacoan"></div>
@@ -220,9 +236,7 @@ main{padding:14px 14px 100px;}
       <div class="form-group"><label class="form-label">Nomor WhatsApp</label><input type="tel" class="form-input" id="daftarWA" placeholder="+628xxxxxxxxxx"></div>
       <div class="form-group"><label class="form-label">Email Resto</label><input type="email" class="form-input" id="daftarEmail" placeholder="email@resto.com"></div>
       <div class="form-group"><label class="form-label">Password (min. 6 karakter)</label><input type="password" class="form-input" id="daftarPass" placeholder="Buat password..."></div>
-      <div class="form-group"><label class="form-label">Alamat Resto</label><input type="text" class="form-input" id="daftarAlamat" placeholder="Alamat lengkap resto"></div>
-      <div class="form-group"><label class="form-label">Jam Operasional</label><input type="text" class="form-input" id="daftarJam" placeholder="contoh: 08.00 - 22.00"></div>
-      <div class="form-group"><label class="form-label">Kategori Usaha</label><select class="form-input" id="daftarKategori"><option value="Mie & Nasi">🍜 Mie & Nasi</option><option value="Ayam">🍗 Ayam</option><option value="Fast Food">🌮 Fast Food</option><option value="Dessert">🍰 Dessert</option><option value="Minuman">🥤 Minuman</option></select></div>
+      <div class="form-group"><label class="form-label">Konfirmasi Password</label><input type="password" class="form-input" id="daftarPass2" placeholder="Ulangi password..."></div>
       <button class="btn-login" id="btnDaftar" onclick="daftarResto()">✅ Daftar Resto</button>
       <div class="login-link">Sudah punya akun? <span onclick="showLogin()">Masuk di sini</span></div>
     </div>
@@ -253,7 +267,7 @@ main{padding:14px 14px 100px;}
   <div class="modal">
     <div class="modal-title"><span id="modalMenuIcon">➕</span> <span id="modalMenuTitle">Tambah Menu Baru</span></div>
     <div class="image-preview" id="imagePreviewContainer"><div class="image-preview-placeholder" id="imagePreviewPlaceholder">🖼️</div><img id="imagePreview" style="display:none;max-width:100%;max-height:100%;object-fit:contain"></div>
-    <button class="btn-add-menu" style="margin:0 0 12px 0;padding:8px" onclick="uploadMenuImage()">📷 Upload Foto Makanan</button>
+    <button class="btn-add-menu" style="margin:0 0 12px 0;padding:8px" onclick="uploadMenuImageCloudinary()">📷 Upload Foto Makanan</button>
     <div class="form-group"><label class="form-label">Nama Menu</label><input type="text" class="form-input" id="menuNama" placeholder="contoh: Mie Level 5"></div>
     <div class="form-group"><label class="form-label">Harga (Rp)</label><input type="number" class="form-input" id="menuHarga" placeholder="contoh: 15000"></div>
     <div class="form-group"><label class="form-label">Kategori</label><input type="text" class="form-input" id="menuKategori" placeholder="contoh: Mie, Minuman, dll"></div>
@@ -286,10 +300,11 @@ main{padding:14px 14px 100px;}
   <!-- STATUS TOGGLE -->
   <div class="status-toggle"><div class="toggle-text"><h4 id="statusTitle">🟢 Resto Sedang Buka</h4><p id="statusSub">Menerima order dari pelanggan</p></div><button class="toggle-switch on" id="toggleSwitch" onclick="toggleBuka()"><div class="toggle-knob"></div></button></div>
 
-  <!-- TABS -->
+  <!-- TABS (DENGAN TAB PROFIL) -->
   <div class="tabs">
     <button class="tab on" onclick="switchTab('orders',this)">📋 Order</button>
     <button class="tab" onclick="switchTab('menu',this)">🍽️ Menu</button>
+    <button class="tab" onclick="switchTab('profile',this)">🏪 Profil Resto</button>
     <button class="tab" onclick="switchTab('history',this)">📊 Riwayat</button>
     <button class="tab" onclick="switchTab('chat',this)">💬 Chat</button>
   </div>
@@ -299,6 +314,43 @@ main{padding:14px 14px 100px;}
 
   <!-- TAB: MENU -->
   <div id="tabMenu" style="display:none"><div class="sec-title">🍽️ Kelola Menu</div><div id="menuList"></div><button class="btn-add-menu" onclick="openAddModal()">➕ Tambah Menu Baru</button></div>
+
+  <!-- TAB: PROFIL RESTO -->
+  <div id="tabProfile" style="display:none">
+    <div class="profile-header">
+      <div id="coverContainer">
+        <img id="profileCover" class="profile-cover" style="display:none">
+        <div id="profileCoverPlaceholder" class="profile-cover-placeholder">🏪</div>
+      </div>
+      <div class="profile-avatar">
+        <div id="logoContainer">
+          <img id="profileLogo" class="profile-logo" style="display:none">
+          <div id="profileLogoPlaceholder" class="profile-logo-placeholder">🍔</div>
+        </div>
+        <div style="flex:1; display:flex; gap:8px; justify-content:flex-end; padding-right:16px">
+          <button class="upload-badge" onclick="uploadRestoLogo()">📷 Upload Logo</button>
+          <button class="upload-badge" onclick="uploadRestoCover()">🖼️ Upload Cover</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="profile-info">
+      <div class="profile-field">
+        <label>🏪 Nama Resto</label>
+        <input type="text" id="profileNamaResto" placeholder="Nama resto">
+      </div>
+      <div class="profile-field">
+        <label>📍 Alamat Resto</label>
+        <textarea id="profileAlamatResto" rows="2" placeholder="Alamat lengkap resto"></textarea>
+      </div>
+      <div class="profile-field">
+        <label>📞 Nomor WhatsApp</label>
+        <input type="tel" id="profileNoWA" placeholder="+628xxxxxxxxxx">
+      </div>
+      <div class="profile-divider"></div>
+      <button class="profile-save-btn" onclick="simpanProfilResto()">💾 Simpan Perubahan</button>
+    </div>
+  </div>
 
   <!-- TAB: HISTORY -->
   <div id="tabHistory" style="display:none"><div class="sec-title">📊 Riwayat Order</div><div id="historyList"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Belum Ada Riwayat</div></div></div></div>
@@ -324,11 +376,17 @@ main{padding:14px 14px 100px;}
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Cloudinary SDK untuk upload gambar -->
+<script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getDatabase, ref, onValue, update, set, push, get, remove, off } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+// ========== TIDAK ADA IMPORT FIREBASE STORAGE LAGI ==========
+// Semua gambar sekarang menggunakan Cloudinary
 
 const firebaseConfig = {
   apiKey: "AIzaSyD93ILJjfqLAoLosdXn4Gm_0F20WFiYz2I",
@@ -343,11 +401,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
-const storage = getStorage(app);
+// Tidak ada lagi: const storage = getStorage(app);
 
 let restoId = null, restoData = null, isBuka = true, pendingNotifOrderId = null, currentChatRoom = null, chatListenerRef = null, editingMenuId = null, currentImageUrl = null;
 const listeners = {};
 const shownOrders = new Set();
+
+// ========== KONFIGURASI CLOUDINARY ==========
+const CLOUDINARY_CLOUD_NAME = "dr1lk4yiy";
+const CLOUDINARY_UPLOAD_PRESET = "akamsi_upload";
+
+// Variabel untuk menyimpan URL gambar dari Cloudinary
+let currentLogoUrl = null;
+let currentCoverUrl = null;
 
 function nowStr() { return new Date().toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' }); }
 
@@ -387,13 +453,39 @@ onAuthStateChanged(auth, async user => {
 });
 
 window.loginResto = async function() { const email = document.getElementById('loginEmail').value.trim(); const pass = document.getElementById('loginPass').value; if (!email||!pass) { showErr('Email dan password wajib diisi'); return; } const btn=document.getElementById('btnLogin'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { await signInWithEmailAndPassword(auth, email, pass); } catch(e) { const m={'auth/user-not-found':'Email tidak terdaftar','auth/wrong-password':'Password salah','auth/invalid-email':'Format email tidak valid'}; showErr(m[e.code]||'Login gagal'); } btn.innerHTML='🔑 Masuk'; btn.disabled=false; };
-window.daftarResto = async function() { const namaResto = document.getElementById('daftarNamaResto').value.trim(); const namaPemilik = document.getElementById('daftarNamaPemilik').value.trim(); const wa = document.getElementById('daftarWA').value.trim(); const email = document.getElementById('daftarEmail').value.trim(); const pass = document.getElementById('daftarPass').value; const alamat = document.getElementById('daftarAlamat').value.trim(); const jam = document.getElementById('daftarJam').value.trim(); const kategori = document.getElementById('daftarKategori').value; if (!namaResto||!email||!pass) { showErr('Nama resto, email, password wajib diisi'); return; } if (pass.length<6) { showErr('Password minimal 6 karakter'); return; } const btn=document.getElementById('btnDaftar'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true; try { const cred = await createUserWithEmailAndPassword(auth, email, pass); await set(ref(db, 'users/'+cred.user.uid), { role: 'resto', email: email, nama: namaPemilik, noWA: wa, createdAt: Date.now() });
-  const restoIdBaru = namaResto.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
-  const restoDataBaru = { nama: namaResto, pemilik: namaPemilik, noWA: wa, email: email, alamat: alamat, jamBuka: jam, kategori: kategori, status: 'buka', createdAt: Date.now() };
-  await set(ref(db, `restos/${restoIdBaru}`), restoDataBaru);
-  await set(ref(db, `restoAccounts/${cred.user.uid}`), { restoId: restoIdBaru, email: email });
-  await sendEmailVerification(cred.user);
-  document.getElementById('verifyEmailDisplay').textContent = email; showStep('step3'); toast('📧 Email verifikasi terkirim!'); } catch(e) { showErr('Daftar gagal: ' + e.message); } btn.innerHTML='✅ Daftar Resto'; btn.disabled=false; };
+
+window.daftarResto = async function() {
+  const namaResto = document.getElementById('daftarNamaResto').value.trim();
+  const namaPemilik = document.getElementById('daftarNamaPemilik').value.trim();
+  const wa = document.getElementById('daftarWA').value.trim();
+  const email = document.getElementById('daftarEmail').value.trim();
+  const pass = document.getElementById('daftarPass').value;
+  const pass2 = document.getElementById('daftarPass2').value;
+  
+  if (!namaResto || !email || !pass) { showErr('Nama resto, email, password wajib diisi'); return; }
+  if (pass.length < 6) { showErr('Password minimal 6 karakter'); return; }
+  if (pass !== pass2) { showErr('Konfirmasi password tidak cocok'); return; }
+  
+  const btn = document.getElementById('btnDaftar');
+  btn.innerHTML = '<div class="spinner"></div>';
+  btn.disabled = true;
+  
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await set(ref(db, 'users/' + cred.user.uid), { role: 'resto', email: email, nama: namaPemilik, noWA: wa, createdAt: Date.now() });
+    const restoIdBaru = namaResto.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
+    const restoDataBaru = { nama: namaResto, pemilik: namaPemilik, noWA: wa, email: email, createdAt: Date.now(), status: 'buka' };
+    await set(ref(db, `restos/${restoIdBaru}`), restoDataBaru);
+    await set(ref(db, `restoAccounts/${cred.user.uid}`), { restoId: restoIdBaru, email: email });
+    await sendEmailVerification(cred.user);
+    document.getElementById('verifyEmailDisplay').textContent = email;
+    showStep('step3');
+    toast('📧 Email verifikasi terkirim! Menunggu verifikasi.');
+  } catch(e) { showErr('Daftar gagal: ' + e.message); }
+  btn.innerHTML = '✅ Daftar Resto';
+  btn.disabled = false;
+};
+
 window.cekVerifikasi = async function() { const user = auth.currentUser; if (!user) { showStep('step1'); return; } await user.reload(); if (user.emailVerified) toast('✅ Terverifikasi!'); else showErr('Belum diverifikasi'); };
 window.kirimUlangVerifikasi = async function() { const user = auth.currentUser; if (!user) return; try { await sendEmailVerification(user); toast('📧 Email dikirim ulang!'); } catch(e) { showErr('Gagal: '+e.message); } };
 window.lupaPassword = async function() { const email = document.getElementById('loginEmail').value.trim(); if (!email) { showErr('Isi email dulu'); return; } try { await sendPasswordResetEmail(auth, email); toast('📧 Link reset dikirim ke '+email); } catch(e) { showErr('Gagal: '+e.message); } };
@@ -405,10 +497,26 @@ function clearErr() { document.getElementById('loginError').classList.remove('sh
 function showErr(msg) { const e=document.getElementById('loginError'); e.textContent='❌ '+msg; e.classList.add('show'); }
 function cleanupAll() { Object.values(listeners).forEach(fn => { try { fn(); } catch(e){} }); if (chatListenerRef) off(chatListenerRef); }
 
+// ========== INIT RESTO ==========
 function initResto() {
   document.getElementById('restoNameDisplay').textContent = restoData?.nama || '–';
   document.getElementById('restoAlamatDisplay').innerHTML = '📍 ' + (restoData?.alamat || 'Alamat belum diisi');
   document.getElementById('restoInfoDisplay').textContent = 'Jam buka: ' + (restoData?.jamBuka || '08.00 - 22.00');
+  
+  // Load logo & cover dari database (URL Cloudinary)
+  if (restoData?.logoUrl) {
+    currentLogoUrl = restoData.logoUrl;
+    document.getElementById('profileLogo').src = currentLogoUrl;
+    document.getElementById('profileLogo').style.display = 'block';
+    document.getElementById('profileLogoPlaceholder').style.display = 'none';
+  }
+  if (restoData?.coverUrl) {
+    currentCoverUrl = restoData.coverUrl;
+    document.getElementById('profileCover').src = currentCoverUrl;
+    document.getElementById('profileCover').style.display = 'block';
+    document.getElementById('profileCoverPlaceholder').style.display = 'none';
+  }
+  
   const statusRef = ref(db, `restos/${restoId}/status`);
   onValue(statusRef, snap => { isBuka = snap.val() !== 'tutup'; updateBukaUI(); });
   listeners.status = () => off(statusRef);
@@ -422,7 +530,9 @@ function initResto() {
   onValue(chatRef, snap => renderChatRooms(snap.val() || {}));
   listeners.chat = () => off(chatRef);
 }
+
 function updateStats(orders) { const today = Date.now() - 86400000; const todayOrders = orders.filter(([,o]) => (o.waktu||0) > today); const selesai = todayOrders.filter(([,o]) => o.status === 'selesai'); document.getElementById('statOrder').textContent = todayOrders.length; document.getElementById('statPendapatan').textContent = selesai.length > 0 ? 'Rp ' + (selesai.length * 35000).toLocaleString('id-ID') : '0'; }
+
 window.toggleBuka = async function() { isBuka = !isBuka; await set(ref(db, `restos/${restoId}/status`), isBuka ? 'buka' : 'tutup'); toast(isBuka ? '🟢 Resto sekarang BUKA!' : '🔴 Resto sekarang TUTUP!'); };
 function updateBukaUI() { const pill = document.getElementById('statusPill'); const sw = document.getElementById('toggleSwitch'); if (isBuka) { pill.className = 'status-pill buka'; pill.textContent = '🟢 BUKA'; sw.classList.add('on'); document.getElementById('statusTitle').textContent = '🟢 Resto Sedang Buka'; document.getElementById('statusSub').textContent = 'Menerima order dari pelanggan'; } else { pill.className = 'status-pill tutup'; pill.textContent = '🔴 TUTUP'; sw.classList.remove('on'); document.getElementById('statusTitle').textContent = '🔴 Resto Sedang Tutup'; document.getElementById('statusSub').textContent = 'Order tidak akan masuk saat tutup'; } }
 
@@ -434,10 +544,99 @@ window.toggleMenu = async function(menuId, habis) { await update(ref(db, `menu/$
 window.openAddModal = function() { editingMenuId = null; currentImageUrl = null; document.getElementById('modalMenuIcon').innerHTML = '➕'; document.getElementById('modalMenuTitle').innerHTML = 'Tambah Menu Baru'; document.getElementById('modalSaveBtn').innerHTML = '💾 Simpan'; document.getElementById('menuNama').value = ''; document.getElementById('menuHarga').value = ''; document.getElementById('menuKategori').value = ''; document.getElementById('menuDeskripsi').value = ''; document.getElementById('menuStok').value = '99'; document.getElementById('menuEstimasi').value = '15'; document.getElementById('menuPromo').value = ''; document.getElementById('imagePreview').style.display = 'none'; document.getElementById('imagePreviewPlaceholder').style.display = 'flex'; document.getElementById('modalMenu').classList.add('on'); };
 window.editMenu = async function(menuId) { editingMenuId = menuId; const snap = await get(ref(db, `menu/${restoId}/${menuId}`)); const m = snap.val(); if (!m) return; document.getElementById('modalMenuIcon').innerHTML = '✏️'; document.getElementById('modalMenuTitle').innerHTML = 'Edit Menu'; document.getElementById('modalSaveBtn').innerHTML = '💾 Update'; document.getElementById('menuNama').value = m.nama || ''; document.getElementById('menuHarga').value = m.harga || ''; document.getElementById('menuKategori').value = m.kategori || ''; document.getElementById('menuDeskripsi').value = m.deskripsi || ''; document.getElementById('menuStok').value = m.stok || 99; document.getElementById('menuEstimasi').value = m.estimasi || 15; document.getElementById('menuPromo').value = m.promo || ''; if (m.imageUrl) { currentImageUrl = m.imageUrl; document.getElementById('imagePreview').src = m.imageUrl; document.getElementById('imagePreview').style.display = 'block'; document.getElementById('imagePreviewPlaceholder').style.display = 'none'; } else { currentImageUrl = null; document.getElementById('imagePreview').style.display = 'none'; document.getElementById('imagePreviewPlaceholder').style.display = 'flex'; } document.getElementById('modalMenu').classList.add('on'); };
 window.closeModal = function() { document.getElementById('modalMenu').classList.remove('on'); };
-window.uploadMenuImage = function() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp'; input.onchange = async (e) => { const file = e.target.files[0]; if (!file) return; toast('📷 Memproses gambar...'); const img = await resizeImage(file, 300, 300); const compressed = await compressImage(img, 0.7); const filename = `menus/${restoId}/${Date.now()}.webp`; const storageReference = storageRef(storage, filename); await uploadBytes(storageReference, compressed); const url = await getDownloadURL(storageReference); currentImageUrl = url; document.getElementById('imagePreview').src = url; document.getElementById('imagePreview').style.display = 'block'; document.getElementById('imagePreviewPlaceholder').style.display = 'none'; toast('✅ Gambar berhasil diupload!'); }; input.click(); };
-function resizeImage(file, maxWidth, maxHeight) { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { let width = img.width, height = img.height; if (width > height) { if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } } else { if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; } } const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); canvas.toBlob(resolve, 'image/webp', 0.7); }; img.src = e.target.result; }; reader.readAsDataURL(file); }); }
-async function compressImage(img, quality) { const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); return new Promise(resolve => canvas.toBlob(resolve, 'image/webp', quality)); }
-window.simpanMenu = async function() { const nama = document.getElementById('menuNama').value.trim(); const harga = parseInt(document.getElementById('menuHarga').value) || 0; const kategori = document.getElementById('menuKategori').value.trim(); const deskripsi = document.getElementById('menuDeskripsi').value.trim(); const stok = parseInt(document.getElementById('menuStok').value) || 0; const estimasi = parseInt(document.getElementById('menuEstimasi').value) || 15; const promo = document.getElementById('menuPromo').value; if (!nama || harga <= 0) { toast('⚠️ Nama dan harga wajib diisi'); return; } const menuData = { nama, harga, kategori, deskripsi, stok, estimasi, promo, imageUrl: currentImageUrl || null, habis: stok === 0, updatedAt: Date.now() }; if (editingMenuId) await update(ref(db, `menu/${restoId}/${editingMenuId}`), menuData); else await push(ref(db, `menu/${restoId}`), { ...menuData, createdAt: Date.now() }); closeModal(); toast(editingMenuId ? '✅ Menu berhasil diupdate!' : '✅ Menu berhasil ditambahkan!'); };
+
+// ========== FUNGSI UPLOAD MENU KE CLOUDINARY DENGAN KOMPRESI ==========
+window.uploadMenuImageCloudinary = function() {
+  if (!window.cloudinary) {
+    toast('⚠️ Cloudinary belum siap, tunggu sebentar');
+    return;
+  }
+  
+  if (!restoId) {
+    toast('⚠️ Resto ID tidak ditemukan');
+    return;
+  }
+  
+  // Buka widget dengan pengaturan kompresi
+  window.cloudinary.openUploadWidget({
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    uploadPreset: CLOUDINARY_UPLOAD_PRESET,
+    sources: ['local', 'camera'],
+    cropping: false,  // Matikan cropping biar lebih cepat
+    folder: `resto_menus/${restoId}`,
+    multiple: false,
+    maxFiles: 1,
+    clientAllowedFormats: ['images'],
+    maxImageFileSize: 2000000,  // 2MB max
+    // ========== PENGATURAN KOMPRESI ==========
+    transformation: {
+      width: 800,
+      height: 800,
+      crop: "limit",      // Limit agar tidak melebihi 800x800
+      quality: "auto:good", // Kompresi otomatis dengan kualitas baik
+      fetch_format: "auto"   // Format otomatis (WebP jika didukung)
+    },
+    // Fallback untuk kompresi manual
+    maxImageWidth: 800,
+    maxImageHeight: 800
+  }, (error, result) => {
+    if (error) {
+      console.error(error);
+      toast('❌ Gagal upload foto menu');
+      return;
+    }
+    if (result && result.event === 'success') {
+      // secure_url sudah otomatis dari Cloudinary
+      const imageUrl = result.info.secure_url;
+      currentImageUrl = imageUrl;
+      document.getElementById('imagePreview').src = imageUrl;
+      document.getElementById('imagePreview').style.display = 'block';
+      document.getElementById('imagePreviewPlaceholder').style.display = 'none';
+      
+      // Tampilkan ukuran file setelah upload (info)
+      const fileSize = result.info.bytes;
+      const sizeKB = (fileSize / 1024).toFixed(0);
+      toast(`✅ Foto menu berhasil diupload! (${sizeKB} KB)`);
+    }
+  });
+};
+
+window.simpanMenu = async function() {
+  const nama = document.getElementById('menuNama').value.trim();
+  const harga = parseInt(document.getElementById('menuHarga').value) || 0;
+  const kategori = document.getElementById('menuKategori').value.trim();
+  const deskripsi = document.getElementById('menuDeskripsi').value.trim();
+  const stok = parseInt(document.getElementById('menuStok').value) || 0;
+  const estimasi = parseInt(document.getElementById('menuEstimasi').value) || 15;
+  const promo = document.getElementById('menuPromo').value;
+  
+  if (!nama || harga <= 0) {
+    toast('⚠️ Nama dan harga wajib diisi');
+    return;
+  }
+  
+  const menuData = {
+    nama,
+    harga,
+    kategori,
+    deskripsi,
+    stok,
+    estimasi,
+    promo,
+    imageUrl: currentImageUrl || null,  // URL dari Cloudinary
+    habis: stok === 0,
+    updatedAt: Date.now()
+  };
+  
+  if (editingMenuId) {
+    await update(ref(db, `menu/${restoId}/${editingMenuId}`), menuData);
+  } else {
+    await push(ref(db, `menu/${restoId}`), { ...menuData, createdAt: Date.now() });
+  }
+  
+  closeModal();
+  toast(editingMenuId ? '✅ Menu berhasil diupdate!' : '✅ Menu berhasil ditambahkan!');
+};
 
 window.terimaOrder = async function(id) { await update(ref(db, 'orders/'+id), { status:'dikonfirmasi', konfirmasiWaktu: Date.now() }); const snap = await get(ref(db, `restos/${restoId}/totalOrders`)); await set(ref(db, `restos/${restoId}/totalOrders`), (snap.val()||0) + 1); toast('✅ Order diterima!'); };
 window.tolakOrder = async function(id) { if (confirm('Yakin menolak order ini?')) { await update(ref(db, 'orders/'+id), { status:'ditolak_resto', tolakWaktu: Date.now() }); toast('❌ Order ditolak'); } };
@@ -458,7 +657,167 @@ window.closeChat = function() { document.getElementById('chatOverlay').classList
 
 function getStatusClass(s) { if (s==='menunggu_konfirmasi') return 'baru'; if (['dikonfirmasi','diproses'].includes(s)) return 'diproses'; if (s==='menunggu_driver') return 'siap'; if (s==='selesai') return 'selesai'; if (s.includes('ditolak')||s.includes('dibatalkan')) return 'batal'; return 'baru'; }
 function getStatusLabel(s) { const m = { menunggu_konfirmasi:'🔔 Order Baru', dikonfirmasi:'✅ Dikonfirmasi', diproses:'👨‍🍳 Dimasak', menunggu_driver:'✅ Siap - Cari Driver', driver_ditemukan:'🏍️ Driver Menuju Resto', selesai:'✅ Selesai', ditolak_resto:'❌ Ditolak', dibatalkan_pelanggan:'🚫 Dibatalkan Pelanggan', dibatalkan_admin:'🚫 Dibatalkan Admin' }; return m[s]||s; }
-window.switchTab = function(tab, el) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('on')); el.classList.add('on'); ['tabOrders','tabMenu','tabHistory','tabChat'].forEach(id => document.getElementById(id).style.display='none'); const map = { orders:'tabOrders', menu:'tabMenu', history:'tabHistory', chat:'tabChat' }; document.getElementById(map[tab]).style.display = 'block'; };
+
+// ========== SWITCH TAB (DENGAN PROFIL) ==========
+window.switchTab = function(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  ['tabOrders','tabMenu','tabProfile','tabHistory','tabChat'].forEach(id => document.getElementById(id).style.display='none');
+  const map = { orders:'tabOrders', menu:'tabMenu', profile:'tabProfile', history:'tabHistory', chat:'tabChat' };
+  document.getElementById(map[tab]).style.display = 'block';
+  if (tab === 'profile') loadProfilResto();
+};
+
+// ========== FUNGSI PROFIL RESTO DENGAN KOMPRESI ==========
+async function loadProfilResto() {
+  if (!restoId) return;
+  const snap = await get(ref(db, `restos/${restoId}`));
+  const data = snap.val() || {};
+  
+  document.getElementById('profileNamaResto').value = data.nama || '';
+  document.getElementById('profileAlamatResto').value = data.alamat || '';
+  document.getElementById('profileNoWA').value = data.noWA || '';
+  
+  currentLogoUrl = data.logoUrl || null;
+  if (currentLogoUrl) {
+    document.getElementById('profileLogo').src = currentLogoUrl;
+    document.getElementById('profileLogo').style.display = 'block';
+    document.getElementById('profileLogoPlaceholder').style.display = 'none';
+  } else {
+    document.getElementById('profileLogo').style.display = 'none';
+    document.getElementById('profileLogoPlaceholder').style.display = 'flex';
+  }
+  
+  currentCoverUrl = data.coverUrl || null;
+  if (currentCoverUrl) {
+    document.getElementById('profileCover').src = currentCoverUrl;
+    document.getElementById('profileCover').style.display = 'block';
+    document.getElementById('profileCoverPlaceholder').style.display = 'none';
+  } else {
+    document.getElementById('profileCover').style.display = 'none';
+    document.getElementById('profileCoverPlaceholder').style.display = 'flex';
+  }
+}
+
+// UPLOAD LOGO DENGAN KOMPRESI
+window.uploadRestoLogo = function() {
+  if (!window.cloudinary) {
+    toast('⚠️ Cloudinary belum siap, tunggu sebentar');
+    return;
+  }
+  
+  window.cloudinary.openUploadWidget({
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    uploadPreset: CLOUDINARY_UPLOAD_PRESET,
+    sources: ['local', 'camera'],
+    cropping: false,
+    folder: `resto_logos/${restoId}`,
+    multiple: false,
+    maxFiles: 1,
+    clientAllowedFormats: ['images'],
+    maxImageFileSize: 2000000,
+    transformation: {
+      width: 300,
+      height: 300,
+      crop: "limit",
+      quality: "auto:good",
+      fetch_format: "auto"
+    },
+    maxImageWidth: 300,
+    maxImageHeight: 300
+  }, (error, result) => {
+    if (error) {
+      console.error(error);
+      toast('❌ Gagal upload logo');
+      return;
+    }
+    if (result && result.event === 'success') {
+      const imageUrl = result.info.secure_url;
+      currentLogoUrl = imageUrl;
+      document.getElementById('profileLogo').src = imageUrl;
+      document.getElementById('profileLogo').style.display = 'block';
+      document.getElementById('profileLogoPlaceholder').style.display = 'none';
+      
+      const fileSize = result.info.bytes;
+      const sizeKB = (fileSize / 1024).toFixed(0);
+      toast(`✅ Logo berhasil diupload! (${sizeKB} KB) - Jangan lupa simpan perubahan.`);
+    }
+  });
+};
+
+// UPLOAD COVER DENGAN KOMPRESI
+window.uploadRestoCover = function() {
+  if (!window.cloudinary) {
+    toast('⚠️ Cloudinary belum siap, tunggu sebentar');
+    return;
+  }
+  
+  window.cloudinary.openUploadWidget({
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    uploadPreset: CLOUDINARY_UPLOAD_PRESET,
+    sources: ['local', 'camera'],
+    cropping: false,
+    folder: `resto_covers/${restoId}`,
+    multiple: false,
+    maxFiles: 1,
+    clientAllowedFormats: ['images'],
+    maxImageFileSize: 2000000,
+    transformation: {
+      width: 1200,
+      height: 400,
+      crop: "limit",
+      quality: "auto:good",
+      fetch_format: "auto"
+    },
+    maxImageWidth: 1200,
+    maxImageHeight: 400
+  }, (error, result) => {
+    if (error) {
+      console.error(error);
+      toast('❌ Gagal upload cover');
+      return;
+    }
+    if (result && result.event === 'success') {
+      const imageUrl = result.info.secure_url;
+      currentCoverUrl = imageUrl;
+      document.getElementById('profileCover').src = imageUrl;
+      document.getElementById('profileCover').style.display = 'block';
+      document.getElementById('profileCoverPlaceholder').style.display = 'none';
+      
+      const fileSize = result.info.bytes;
+      const sizeKB = (fileSize / 1024).toFixed(0);
+      toast(`✅ Cover berhasil diupload! (${sizeKB} KB) - Jangan lupa simpan perubahan.`);
+    }
+  });
+};
+
+window.simpanProfilResto = async function() {
+  const nama = document.getElementById('profileNamaResto').value.trim();
+  const alamat = document.getElementById('profileAlamatResto').value.trim();
+  const noWA = document.getElementById('profileNoWA').value.trim();
+  
+  if (!nama) {
+    toast('⚠️ Nama resto wajib diisi');
+    return;
+  }
+  
+  const updateData = {
+    nama: nama,
+    alamat: alamat,
+    noWA: noWA,
+    logoUrl: currentLogoUrl || null,
+    coverUrl: currentCoverUrl || null,
+    updatedAt: Date.now()
+  };
+  
+  await update(ref(db, `restos/${restoId}`), updateData);
+  
+  document.getElementById('restoNameDisplay').textContent = nama;
+  document.getElementById('restoAlamatDisplay').innerHTML = '📍 ' + (alamat || 'Alamat belum diisi');
+  
+  toast('✅ Profil resto berhasil disimpan!');
+};
+
 function bunyiChat(){ try{ const ctx=new AudioContext(); [[0,800,.22],[100,1000,.18]].forEach(([delay,freq,vol])=>{ const osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain);gain.connect(ctx.destination); osc.type='sine';osc.frequency.value=freq; gain.gain.setValueAtTime(vol,ctx.currentTime+delay/1000); gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay/1000+.15); osc.start(ctx.currentTime+delay/1000);osc.stop(ctx.currentTime+delay/1000+.15); }); } catch(e){} }
 let _tt; window.toast = function(msg) { clearTimeout(_tt); document.querySelectorAll('.toast').forEach(t=>t.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); _tt=setTimeout(()=>{if(t.parentNode)t.remove();},2800); };
 </script>
